@@ -13,7 +13,6 @@ var logLevel = (process.env.LOG_LEVEL || 'debug');
 var logger = bunyan.createLogger({ name: 'vm-agent', level: logLevel });
 
 var VmAgent = require('../lib');
-var UpdateAgent = require('update-agent');
 
 var config = { log: logger };
 var sdcConfig;
@@ -86,9 +85,6 @@ async.waterfall([
         logger.fatal('config.url is required');
         process.exit(1);
     }
-
-    var updateAgent = new UpdateAgent(config);
-    config.updateAgent = updateAgent;
 
     var vmagent = new VmAgent(config);
     vmagent.start();
