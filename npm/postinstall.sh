@@ -107,10 +107,15 @@ if [[ $? == 0 ]]; then
 	have_sapi="true"
 fi
 
-subfile "$DIR/../smf/manifests/$npm_package_name.xml.in" "$SMF_DIR/$npm_package_name.xml"
-svccfg import $SMF_DIR/$npm_package_name.xml
+subfile "$DIR/../smf/manifests/$AGENT.xml.in" "$SMF_DIR/$AGENT.xml"
+svccfg import $SMF_DIR/$AGENT.xml
 
-[[ $is_headnode == "true" ]] && [[ $have_sapi == "false" ]] && exit 0
+# case 1) is first time this agent is installed on the headnode. Disable its
+# service until config-agent sets up its config
+if [[ $is_headnode == "true" ]] && [[ $have_sapi == "false" ]]; then
+    svcadm disable $AGENT
+    exit 0
+fi
 
 get_adopt_instance
 
