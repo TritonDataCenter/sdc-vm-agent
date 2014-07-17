@@ -95,10 +95,10 @@ function adopt_instance()
 
 # Check if we're inside a headnode and if there is a SAPI available. This post-
 # install script runs in the following circumstances:
-# 1. hn=1, sapi=0: first hn boot, exit 0
-# 2. hn=1, sapi=1: upgrades, run script, get-or-create instance
-# 3. hn=0, sapi=1: new cns, cn upgrades, run script, get-or-create instance
-# 4. hn=0, sapi=0: not possible (unless errors)
+# 1. (don't call adopt) hn=1, sapi=0: first hn boot, disable agent, exit 0
+# 2. (call adopt) hn=1, sapi=1: upgrades, run script, get-or-create instance
+# 3. (call adopt) hn=0, sapi=0: new cns, cn upgrades, run script, get-or-create instance
+# 4. (call adopt) hn=0, sapi=1: no sdc-sapi on CNs, unexpected but possible
 is_headnode=$(sysinfo | json "Boot Parameters".headnode)
 have_sapi=false
 
