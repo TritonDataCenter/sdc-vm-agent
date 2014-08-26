@@ -11,10 +11,11 @@
         "restify": "2.7.0"
     },
     "scripts": {
-        "postinstall":   "npm/postinstall.sh",
+        "postinstall": "npm/postinstall.sh",
         "postuninstall": "npm/postuninstall.sh"
     },
     "bin": {
         "vm-agent": "./bin/vm-agent.js"
-    }
+    },
+    "license": "MPL-2.0"
 }
