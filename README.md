@@ -13,7 +13,7 @@
 
 The SDC VM agent is a library for keeping track of VM changes on an SDC data
 center. There is one VM agent installed per Compute Node. VM changes trigger
-updates on [VMAPI](https://github.com/joyent/sdc-sapi) so data is persisted.
+updates on [VMAPI](https://github.com/joyent/sdc-vmapi) so data is persisted.
 
 This repository is part of the Joyent SmartDataCenter project (SDC).  For
 contribution guidelines, issues, and general documentation, visit the main
