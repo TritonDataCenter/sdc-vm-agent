@@ -12,6 +12,8 @@
  * vm-agent.js
  */
 
+var path = require('path');
+var fs = require('fs');
 var bunyan = require('bunyan');
 var async = require('async');
 var execFile = require('child_process').execFile;
@@ -23,7 +25,7 @@ var logger = bunyan.createLogger({ name: 'vm-agent', level: logLevel });
 var VmAgent = require('../lib');
 
 var config = { log: logger };
-var sdcConfig;
+var agentConfig;
 var sysinfo;
 
 process.on('uncaughtException', function (e) {
@@ -32,22 +34,16 @@ process.on('uncaughtException', function (e) {
 });
 
 function loadConfig(callback) {
-    execFile('/bin/bash', ['/lib/sdc/config.sh', '-json'],
-        function _loadConfig(err, stdout, stderr) {
-            if (err) {
-                logger.fatal(err, 'Could not load config: ' + stderr);
-                return callback(err);
-            }
+    var configPath = '/opt/smartdc/agents/etc/vm-agent.config.json';
 
-            try {
-                sdcConfig = JSON.parse(stdout); // intentionally global
-            } catch (e) {
-                logger.fatal(e, 'Could not parse config: ' + e.message);
-                return callback(e);
-            }
+    try {
+        agentConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    } catch (e) {
+        logger.fatal(e, 'Could not parse agent config: ' + e.message);
+        return callback(e);
+    }
 
-            return callback(null);
-        });
+    return callback(null);
 }
 
 // Run the sysinfo script and return the captured stdout, stderr, and exit
@@ -86,14 +82,19 @@ async.waterfall([
     }
 
     config.uuid = sysinfo.UUID;
-    var vmapi_url = 'http://' + sdcConfig.vmapi_domain;
-    config.url = (process.env.VMAPI_URL || vmapi_url);
+    config.url = agentConfig.vmapi.url;
 
     if (!config.url) {
         logger.fatal('config.url is required');
         process.exit(1);
     }
 
-    var vmagent = new VmAgent(config);
-    vmagent.start();
+    var vmagent;
+    if (agentConfig.no_rabbit) {
+        vmagent = new VmAgent(config);
+        vmagent.start();
+    } else {
+        logger.warn('"no_rabbit" flag is not true, vm-agent will now sleep');
+        setInterval(function(){}, Math.POSITIVE_INFINITY);
+    }
 });
