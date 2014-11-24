@@ -25,6 +25,7 @@ var logger = bunyan.createLogger({ name: 'vm-agent', level: logLevel });
 var VmAgent = require('../lib');
 
 var config = { log: logger };
+var sdcConfig;
 var agentConfig;
 var sysinfo;
 
@@ -39,12 +40,43 @@ function loadConfig(callback) {
     try {
         agentConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     } catch (e) {
-        logger.fatal(e, 'Could not parse agent config: ' + e.message);
-        return callback(e);
+        logger.error(e, 'Could not parse agent config: "%s", '
+            + 'attempting to load from /lib/sdc/config.sh now', e.message);
     }
 
     return callback(null);
 }
+
+// If we are unable to read a config-agent managed configuration, then we
+// have to rely on sdc/config.sh and turn off no_rabbit
+function loadSdcConfig(callback) {
+    if (agentConfig !== undefined) {
+        callback();
+        return;
+    }
+
+    execFile('/bin/bash', ['/lib/sdc/config.sh', '-json'],
+        function _loadConfig(err, stdout, stderr) {
+            if (err) {
+                logger.fatal(err, 'Could not load sdc config: ' + stderr);
+                return callback(err);
+            }
+
+            try {
+                sdcConfig = JSON.parse(stdout);
+                agentConfig = {
+                    vmapi: { url: 'http://' + sdcConfig.vmapi_domain },
+                    no_rabbit: false
+                };
+            } catch (e) {
+                logger.fatal(e, 'Could not parse sdc config: ' + e.message);
+                return callback(e);
+            }
+
+            return callback(null);
+    });
+}
+
 
 // Run the sysinfo script and return the captured stdout, stderr, and exit
 // status code.
@@ -69,6 +101,7 @@ function loadSysinfo(callback) {
 
 async.waterfall([
     loadConfig,
+    loadSdcConfig,
     loadSysinfo
 ], function (err) {
     if (err) {
