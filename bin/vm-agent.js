@@ -95,6 +95,6 @@ async.waterfall([
         vmagent.start();
     } else {
         logger.warn('"no_rabbit" flag is not true, vm-agent will now sleep');
-        setInterval(function(){}, Math.POSITIVE_INFINITY);
+        setInterval(function () {}, Math.POSITIVE_INFINITY);
     }
 });
