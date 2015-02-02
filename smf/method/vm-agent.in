@@ -20,6 +20,7 @@ set -o xtrace
 
 
 # vm-agent logadm configuration
+mkdir -p -m 0755 /var/log/vm-agent
 logadm -w vm_agent_logs -C 168 -S 1g -c -p 1h \
     -t '/var/log/vm-agent/vm-agent_$nodename_%FT%H:%M:%S.log' \
     /var/svc/log/*vm-agent*.log
