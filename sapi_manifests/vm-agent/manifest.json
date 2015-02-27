@@ -1,5 +1,5 @@
 {
 	"name": "vm-agent",
 	"path": "/opt/smartdc/agents/etc/vm-agent.config.json",
-	"post_cmd": "[[ $(svcs -Ho state vm-agent) == 'online' ]] && /usr/sbin/svcadm restart vm-agent || /usr/sbin/svcadm enable vm-agent"
+	"post_cmd": "[[ $(svcs -Ho state vm-agent) == 'online' ]] && /usr/sbin/svcadm restart vm-agent || /usr/sbin/svcadm enable vm-agent; /usr/sbin/svcadm restart heartbeater"
 }
