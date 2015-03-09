@@ -54,7 +54,6 @@ NAME		:= vm-agent
 RELEASE_TARBALL := $(NAME)-$(STAMP).tgz
 RELEASE_MANIFEST := $(NAME)-$(STAMP).manifest
 RELSTAGEDIR          := /tmp/$(STAMP)
-NODEUNIT	= $(TOP)/node_modules/.bin/nodeunit
 
 #
 # Repo-specific targets
@@ -63,14 +62,9 @@ NODEUNIT	= $(TOP)/node_modules/.bin/nodeunit
 all: $(SMF_MANIFESTS) | $(NPM_EXEC) $(REPO_DEPS)
 	$(NPM) install
 
-$(NODEUNIT): | $(NPM_EXEC)
-	$(NPM) install
-
-CLEAN_FILES += $(TAP) ./node_modules/tap
-
 .PHONY: test
-test: $(TAP)
-	TAP=1 $(TAP) test/*.test.js
+test:
+	true
 
 .PHONY: release
 release: all deps docs $(SMF_MANIFESTS)
