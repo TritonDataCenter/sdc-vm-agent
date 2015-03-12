@@ -17,7 +17,6 @@ var fs = require('fs');
 var bunyan = require('bunyan');
 var async = require('async');
 var execFile = require('child_process').execFile;
-var VM = require('/usr/vm/node_modules/VM');
 
 var logLevel = (process.env.LOG_LEVEL || 'debug');
 var logger = bunyan.createLogger({ name: 'vm-agent', level: logLevel });
