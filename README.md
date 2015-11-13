@@ -9,45 +9,45 @@
 -->
 
 
-# sdc-vm-agent
+# SDC VM Agent
 
-The SDC VM agent is a library for keeping track of VM changes on an SDC data
-center. There is one VM agent installed per Compute Node. VM changes trigger
+The SDC VM agent (vm-agent) keeps track of VM changes in a data
+center. There is one VM agent installed per compute node. VM changes trigger
 updates on [VMAPI](https://github.com/joyent/sdc-vmapi) so data is persisted.
 
-This repository is part of the Joyent SmartDataCenter project (SDC).  For
-contribution guidelines, issues, and general documentation, visit the main
-[SDC](http://github.com/joyent/sdc) project page.
+
+This repository is part of the SmartDataCenter (SDC) project. For
+contribution guidelines, issues, and general documentation, visit the
+[main SDC project](http://github.com/joyent/sdc).
 
 # Development
 
-Typically sdc-vm-agent development is done by:
+Typically vm-agent development is done by:
 
-- making edits to a clone of sdc-vm-agent.git on a Mac (likely Linux too, but
-  that's untested) or a SmartOS development zone,
+1. Making edits to a clone of sdc-vm-agent.git on a Mac or
+   a SmartOS development zone:
 
         git clone git@github.com:joyent/sdc-vm-agent.git
         cd sdc-vm-agent
-        git submodule update --init   # not necessary first time
+        git submodule update --init
         vi
 
-- building:
+1. Building:
 
         make all
         make check
 
-- syncing changes to a running SDC (typically a COAL running locally in VMWare)
-  via:
+1. Syncing changes to a running SDC (typically CoaL):
         ./tools/rsync-to coal
 
-- then testing changes in that SDC (e.g. COAL).
-  See "Testing" below for running the test suite.
+1. Testing changes in that SDC (e.g. CoaL).
+   See "Testing" below for running the test suite.
 
 
-## Testing
+# Testing
 
-At the moment, sdc-vm-agent testing is done by running the VMAPI test suite.
-SSH into a running SDC and run the following commands:
+At the moment, sdc-vm-agent testing is done by running the [VMAPI](https://github.com/joyent/sdc-vmapi)
+test suite. SSH into a running SDC and run the following commands:
 
 	touch /lib/sdc/.sdc-test-no-production-data
 	/zones/`vmadm lookup -1 alias=vmapi0`/root/opt/smartdc/vmapi/test/runtests
@@ -56,3 +56,8 @@ The vm-agent SMF service log can be inspected while running the VMAPI tests by
 calling:
 
 	tail -f `svcs -L vm-agent` | bunyan
+
+## License
+
+SDC VM agent is licensed under the
+[Mozilla Public License version 2.0](http://mozilla.org/MPL/2.0/).
