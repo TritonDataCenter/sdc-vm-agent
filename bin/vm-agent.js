@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2015, Joyent, Inc.
  */
 
 /*
@@ -122,13 +122,6 @@ async.waterfall([
     }
 
     var vmagent;
-    if (agentConfig.no_rabbit) {
-        vmagent = new VmAgent(config);
-        vmagent.start();
-    } else {
-        logger.warn('"no_rabbit" flag is not true, vm-agent will now sleep');
-        // http://nodejs.org/docs/latest/api/all.html#all_settimeout_cb_ms
-        // ...The timeout must be in the range of 1-2,147,483,647 inclusive...
-        setInterval(function () {}, 2000000000);
-    }
+    vmagent = new VmAgent(config);
+    vmagent.start();
 });
