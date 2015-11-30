@@ -5,10 +5,15 @@
     "author": "Joyent (joyent.com)",
     "private": true,
     "dependencies": {
-        "async": "0.1.18",
-        "backoff": "2.3.0",
-        "bunyan": "0.22.3",
-        "restify": "2.7.0"
+        "assert-plus": "0.2.0",
+        "bunyan": "1.5.1",
+        "deep-diff": "0.3.3",
+        "eslint": "1.10.1",
+        "node-uuid": "1.4.7",
+        "restify-clients": "1.1.1",
+        "tape": "4.2.2",
+        "vasync": "1.6.3",
+        "vmadm": "git+ssh://git@github.com:joyent/node-vmadm.git#cd73ad50c8b432cf361beb37af80bf91af93f5d6"
     },
     "sdcDependencies": {
         "config-agent": ">=1.3.0"

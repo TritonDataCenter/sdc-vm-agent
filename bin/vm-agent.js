@@ -12,28 +12,23 @@
  * vm-agent.js
  */
 
-var path = require('path');
-var fs = require('fs');
 var bunyan = require('bunyan');
-var async = require('async');
 var execFile = require('child_process').execFile;
+var fs = require('fs');
+var vasync = require('vasync');
 
 var logLevel = (process.env.LOG_LEVEL || 'debug');
-var logger = bunyan.createLogger({ name: 'vm-agent', level: logLevel });
+var logger = bunyan.createLogger({name: 'vm-agent', level: logLevel});
 
 var VmAgent = require('../lib');
 
-var config = { log: logger };
+var config = {log: logger};
 var sdcConfig;
 var agentConfig;
 var sysinfo;
 
-process.on('uncaughtException', function (e) {
-    console.error('uncaught exception:' + e.message);
-    console.log(e.stack);
-});
 
-function loadConfig(callback) {
+function loadConfig(arg, callback) {
     var configPath = '/opt/smartdc/agents/etc/vm-agent.config.json';
 
     try {
@@ -47,9 +42,9 @@ function loadConfig(callback) {
 }
 
 // If we are unable to read a config-agent managed configuration, then we
-// have to rely on sdc/config.sh and turn off no_rabbit
-function loadSdcConfig(callback) {
-    if (agentConfig !== undefined) {
+// have to rely on sdc/config.sh
+function loadSdcConfig(arg, callback) {
+    if (!agentConfig) {
         callback();
         return;
     }
@@ -64,8 +59,7 @@ function loadSdcConfig(callback) {
             try {
                 sdcConfig = JSON.parse(stdout);
                 agentConfig = {
-                    vmapi: { url: 'http://' + sdcConfig.vmapi_domain },
-                    no_rabbit: false
+                    vmapi: {url: 'http://' + sdcConfig.vmapi_domain}
                 };
             } catch (e) {
                 logger.fatal(e, 'Could not parse sdc config: ' + e.message);
@@ -73,14 +67,15 @@ function loadSdcConfig(callback) {
             }
 
             return callback(null);
-    });
+        }
+    );
 }
 
 
 // Run the sysinfo script and return the captured stdout, stderr, and exit
 // status code.
-function loadSysinfo(callback) {
-    execFile('/usr/bin/sysinfo', [], function (err, stdout, stderr) {
+function loadSysinfo(arg, callback) {
+    execFile('/usr/bin/sysinfo', [], function _sysinfoCb(err, stdout, stderr) {
         if (err) {
             logger.fatal('Could not load sysinfo: ' + stderr.toString());
             return callback(err);
@@ -98,11 +93,13 @@ function loadSysinfo(callback) {
 }
 
 
-async.waterfall([
+vasync.pipeline({funcs: [
     loadConfig,
     loadSdcConfig,
     loadSysinfo
-], function (err) {
+]}, function _pipelineComplete(err) {
+    var vmagent;
+
     if (err) {
         logger.fatal('Failed to initialize vm-agent configuration');
         process.exit(1);
@@ -113,7 +110,7 @@ async.waterfall([
         process.exit(1);
     }
 
-    config.uuid = sysinfo.UUID;
+    config.server_uuid = sysinfo.UUID;
     config.url = agentConfig.vmapi.url;
 
     if (!config.url) {
@@ -121,7 +118,6 @@ async.waterfall([
         process.exit(1);
     }
 
-    var vmagent;
     vmagent = new VmAgent(config);
     vmagent.start();
 });

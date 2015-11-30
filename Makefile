@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright (c) 2014, Joyent, Inc.
+# Copyright (c) 2015, Joyent, Inc.
 #
 
 #
@@ -25,12 +25,11 @@
 #
 # Files
 #
-JS_FILES :=		$(shell ls *.js 2>/dev/null) \
-			$(shell find bin lib test -name '*.js' 2>/dev/null)
-JSL_CONF_NODE =		tools/jsl.node.conf
-JSL_FILES_NODE =	$(JS_FILES)
-JSSTYLE_FILES =		$(JS_FILES)
-JSSTYLE_FLAGS =		-o indent=4,doxygen,unparenthesized-return=0
+JS_FILES =
+JSL_CONF_NODE =
+JSL_FILES_NODE =
+JSSTYLE_FILES =
+JSSTYLE_FLAGS =
 
 # Should be the same version as the platform's /usr/node/bin/node.
 NODE_PREBUILT_TAG =	gz
@@ -110,6 +109,9 @@ release: all deps docs $(SMF_MANIFESTS)
 	    >$(TOP)/$(RELEASE_MANIFEST)
 	@rm -rf $(RELSTAGEDIR)
 
+# XXX TODO: remove node_modules/eslint
+#           add kthxbai
+
 .PHONY: publish
 publish: release
 	@if [[ -z "$(BITS_DIR)" ]]; then \
@@ -128,6 +130,13 @@ dumpvar:
 	fi
 	@echo "$(VAR) is '$($(VAR))'"
 
+# eslint ftw
+check:: check-eslint
+
+.PHONY: check-eslint
+check-eslint: $(ESLINT)
+	@./node_modules/.bin/eslint ./
+
 include ./tools/mk/Makefile.deps
 ifeq ($(shell uname -s),SunOS)
 include ./tools/mk/Makefile.node_prebuilt.targ
@@ -137,3 +146,9 @@ endif
 include ./tools/mk/Makefile.node_deps.targ
 include ./tools/mk/Makefile.smf.targ
 include ./tools/mk/Makefile.targ
+
+ESLINT = ./node_modules/.bin/eslint
+
+$(ESLINT):
+	npm install
+
