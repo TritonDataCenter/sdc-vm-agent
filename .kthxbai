@@ -61,6 +61,9 @@ sdc-clients/lib/{dsapi,usageapi}.js
 # vasync
 **/vasync/Makefile.targ
 
+# vmadm
+vmadm/tools
+
 # extsprintf
 **/extsprintf/Makefile*
 **/extsprintf/jsl.node.conf
