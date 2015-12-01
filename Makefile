@@ -71,6 +71,8 @@ RUN_NPM_INSTALL =	$(NPM_ENV) $(NPM) install
 .PHONY: all
 all: $(SMF_MANIFESTS) | $(NPM_EXEC) $(REPO_DEPS)
 	$(RUN_NPM_INSTALL)
+	./node_modules/.bin/kthxbai || true # work around trentm/node-kthxbai#1
+	./node_modules/.bin/kthxbai
 
 .PHONY: test
 test:
@@ -80,7 +82,6 @@ test:
 release: all deps docs $(SMF_MANIFESTS)
 	@echo "Building $(RELEASE_TARBALL)"
 	@mkdir -p $(RELSTAGEDIR)/$(NAME)
-	cd $(TOP) && $(RUN_NPM_INSTALL)
 	(git symbolic-ref HEAD | awk -F/ '{print $$3}' && git describe) \
 	    >$(TOP)/describe
 	cp -r \
@@ -94,8 +95,15 @@ release: all deps docs $(SMF_MANIFESTS)
 	$(TOP)/smf \
 	$(TOP)/npm \
 	$(RELSTAGEDIR)/$(NAME)
+	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/eslint \
+	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/eslint
+	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/tape \
+	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/tape
+	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/kthxbai \
+	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/kthxbai
 	uuid -v4 > $(RELSTAGEDIR)/$(NAME)/image_uuid
-	cp -PR $(NODE_INSTALL) $(RELSTAGEDIR)/$(NAME)/node
+	mkdir -p $(RELSTAGEDIR)/$(NAME)/node/bin
+	cp $(NODE_INSTALL)/bin/node $(RELSTAGEDIR)/$(NAME)/node/bin/
 	cd $(RELSTAGEDIR) && $(TAR) -zcf $(TOP)/$(RELEASE_TARBALL) *
 	cat $(TOP)/manifest.tmpl | sed \
 	    -e "s/UUID/$$(cat $(RELSTAGEDIR)/$(NAME)/image_uuid)/" \
@@ -131,6 +139,10 @@ dumpvar:
 	@echo "$(VAR) is '$($(VAR))'"
 
 # eslint ftw
+ESLINT = ./node_modules/.bin/eslint
+$(ESLINT):
+	$(RUN_NPM_INSTALL)
+
 check:: check-eslint
 
 .PHONY: check-eslint
@@ -146,9 +158,4 @@ endif
 include ./tools/mk/Makefile.node_deps.targ
 include ./tools/mk/Makefile.smf.targ
 include ./tools/mk/Makefile.targ
-
-ESLINT = ./node_modules/.bin/eslint
-
-$(ESLINT):
-	npm install
 
