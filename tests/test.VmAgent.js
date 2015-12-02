@@ -9,11 +9,15 @@
  */
 
 var diff = require('deep-diff').diff;
+var execFile = require('child_process').execFile;
 var EventEmitter = require('events').EventEmitter;
 var test = require('tape');
 var util = require('util');
 var node_uuid = require('node-uuid');
+var vasync = require('vasync');
+var vmadm = require('vmadm');
 var VmAgent = require('../lib/vm-agent');
+var VmWatcher = require('../lib/vm-watcher').VmWatcher;
 
 var logStub = {
     child: function () { return logStub; },
@@ -21,11 +25,20 @@ var logStub = {
     debug: function () { return true; },
     info:  function () { return true; },
     warn:  function () { return true; },
-    error: function (err) { console.log(err); return true; }
+    error: function (err) {
+        if (err.stderrLines && err.stderrLines[err.stderrLines.length - 1]
+            .match(/^Requested unique lookup but found 0 results./)) {
+            // ignore non-existent errors
+            return true;
+        }
+        console.log(err); return true;
+    }
 };
 
 // GLOBAL
 var fakeWatcher;
+var smartosImageUUID;
+var smartosVmUUID;
 var vmAgent;
 var vmadmErr;
 var vmadmVms = [];
@@ -240,7 +253,11 @@ function createVm(template, properties) {
 // cleans global variables for the next test.
 function recycleGlobals() {
     coordinator.removeAllListeners();
+    if (vmAgent) {
+        vmAgent.stop();
+    }
     fakeWatcher = undefined;
+    smartosVmUUID = undefined;
     vmAgent = undefined;
     vmadmErr = undefined;
     vmadmVms = [];
@@ -280,7 +297,6 @@ test('Startup VmAgent with VM missing from VMAPI', function (t) {
     t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
     vmAgent = new VmAgent(config);
     vmAgent.start();
-    vmAgent.stop(); // TODO: cleanup
 });
 
 /*
@@ -301,6 +317,7 @@ test('Startup VmAgent with VM missing from vmadm', function (t) {
 
     coordinator.on('vmapi.updateServerVms', function (vmobjs, server_uuid) {
         var expected = vmapiVms[0];
+
         expected.state = 'destroyed';
         expected.zone_state = 'destroyed';
 
@@ -339,12 +356,15 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
     };
     var done = false;
     var mode = 'creating';
-    // These are processed from bottom to top. We should have create_vms number
-    // of VMs.
+    // These are processed from top to bottom. We should have <create_vms>
+    // number of VMs on which to operate.
+    //
+    // TODO: test more modifications
+    //
     var mods = [
         {vm: 0, change: 'set', field: 'quota', value: 1000},
-        {vm: 1, change: 'del', field: 'cpu_cap'},
         {vm: 1, change: 'set', field: 'cpu_cap', value: 800},
+        {vm: 1, change: 'del', field: 'cpu_cap'},
         {vm: 0, change: 'set', field: 'customer_metadata', value: {'hello': 'world'}}
     ];
 
@@ -353,11 +373,11 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
 
         vmadmVms.push(newVm);
         t.ok(newVm, 'created VM ' + (newVm ? newVm.uuid : 'undefined'));
-        vmAgent.watcher.emit('VmCreated', newVm.uuid);
+        fakeWatcher.doEmit('VmCreated', newVm.uuid);
     }
 
     function _modVm() {
-        var mod = mods[mods.length - 1];
+        var mod = mods[0];
 
         if (mod.change === 'set') {
             vmadmVms[mod.vm][mod.field] = mod.value;
@@ -366,13 +386,13 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
         }
         t.ok(true, 'modified VM ' + mod.field + '='
             + vmadmVms[mod.vm][mod.field]);
-        vmAgent.watcher.emit('VmModified', vmadmVms[mod.vm].uuid);
+        fakeWatcher.doEmit('VmModified', vmadmVms[mod.vm].uuid);
     }
 
     function _delVm() {
         var vm = vmadmVms.pop();
         t.ok(true, 'deleted VM ' + vm.uuid);
-        vmAgent.watcher.emit('VmDeleted', vm.uuid);
+        fakeWatcher.doEmit('VmDeleted', vm.uuid);
     }
 
     // 1. When VmAgent is doing its initialization, it does a vmadm.lookup for
@@ -413,7 +433,7 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
         }
 
         if (mode === 'modifying') {
-            mod = mods[mods.length - 1];
+            mod = mods[0];
 
             t.equal(vmobj.uuid, vmadmVms[mod.vm].uuid,
                 'received PUT /vms/' + vmobj.uuid);
@@ -425,7 +445,7 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
                     + 'removed: ' + mod.field);
             }
 
-            mods.pop(); // consume this mod
+            mods.shift(); // consume this mod
 
             if (mods.length > 0) {
                 _modVm();
@@ -526,7 +546,6 @@ test('VmAgent retries when VMAPI returning errors', function (t) {
     });
 
     coordinator.on('vmapi.updateServerVms', function (vmobjs, server_uuid) {
-        // We shouldn't see this in this test.
         t.ok(attempts > 5, 'attempts (' + attempts + ') should be > 5 when '
             + 'we see vmapi.updateServerVms()');
         t.equal(Object.keys(vmobjs.vms).length, 1, 'updateServerVms payload has 1 VM');
@@ -536,7 +555,6 @@ test('VmAgent retries when VMAPI returning errors', function (t) {
         done = true;
     });
 
-    // start w/ empty vmapi + vmadm
     vmadmVms = [createVm(standardVm)];
 
     // simulate connection refused
@@ -677,7 +695,6 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function (t) {
         }, 11000);
     });
 
-    // start w/ empty vmapi + vmadm
     vmadmVms = [createVm(standardVm)];
     vmapiVms = [];
 
@@ -698,26 +715,373 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function (t) {
     _waitDone();
 });
 
+/*
+ * VmAgent starts, there's a single VM in vmadm that gets updated to VMAPI.
+ * After VMAPI is updated, it crashes and starts returning ECONNREFUSED, the VM
+ * is deleted from vmadm while in this state. When VMAPI "recovers", we should
+ * correctly mark the VM as destroyed.
+ *
+ * The purpose here is to ensure that we're keeping the last seen value for the
+ * VM object so that we can send a correct VMAPI update.
+ */
+test('VmAgent sends deletion events after PUT failures', function (t) {
+    var attempts = 0;
+    var config = {
+        log: logStub,
+        server_uuid: node_uuid.v4(),
+        url: 'http://127.0.0.1/',
+        vmadm: fakeVmadm,
+        vmapi: fakeVmapi,
+        vmwatcher: fakeVmWatcher
+    };
+    var deletedVmUpdate;
+    var done = false;
 
-// Test w/ updates happening after running for a bit, and VMAPI returning errors
-// also with modifications ongoing. The VMs should be loaded and PUT when VMAPI
-// recovers.
+    // 2. After we've deleted the VM, we should see multiple attempts to PUT the
+    //    VM with the state/zone_state 'destroyed'. When we have seen 3 of
+    //    these, we'll un-error VMAPI and expect exactly 1 more.
+    coordinator.on('vmapi.updateVm', function (vmobj, err) {
+        attempts++;
+        t.equal(diff(deletedVmUpdate, vmobj), undefined, 'PUT includes VM with '
+            + 'only change [zone_]state=destroyed (' + attempts + ')'
+            + (err ? ' -- ' + err.name : ''));
 
-// Test w/ updates happening while init is retrying. Ensure these are queued and
-// processed when we finally are up. XXX: do we need to clear on each init loop
-// since we're doing a full reload anyway?? Maybe start just before vmadm lookup
-// and clear on error?
+        if (attempts === 3) {
+            // at 3 attempts, the problem is "resolved"
+            vmapiPutErr = undefined;
+        } else if (attempts === 4)  {
+            // should be the last one!
+            setTimeout(function () {
+                t.equal(attempts, 4, 'expected 4 total attempts');
+                done = true;
+            }, 10000);
+        } else if (attempts > 4) {
+            // uh-oh!
+            t.fail('should not have seen put ' + attempts + ' for deleted VM');
+        }
+    });
 
-// Test with no differences between the two and that we don't bother sending an
-// update.
+    // 1. When we see the initial update, we'll mark VMAPI as broken and delete
+    //    the VM from vmadm.
+    coordinator.on('vmapi.updateServerVms', function (vmobjs, server_uuid) {
+        var deletedVm;
 
-// TODO: real vmadm + fake VMAPI:
-//      - create a new VM -- should be sent to VMAPI
+        t.equal(Object.keys(vmobjs.vms).length, 1, 'updateServerVms payload has 1 VM');
+        t.equal(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]), undefined,
+           '"PUT /vms" includes missing VM');
+
+        // simulate Moray down
+        vmapiPutErr = new Error('{"message":"no active connections"}');
+        vmapiPutErr.body = {message: 'no active connections'};
+        vmapiPutErr.name = 'InternalServerError';
+
+        // now delete the VM.
+        deletedVm = vmadmVms.pop();
+        t.ok(true, 'deleted VM ' + deletedVm.uuid);
+        fakeWatcher.doEmit('VmDeleted', deletedVm.uuid);
+
+        deletedVmUpdate = JSON.parse(JSON.stringify(deletedVm));
+        deletedVmUpdate.state = 'destroyed';
+        deletedVmUpdate.zone_state = 'destroyed';
+    });
+
+    vmadmVms = [createVm(standardVm)];
+    vmapiVms = [];
+
+    t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
+    vmAgent = new VmAgent(config);
+    vmAgent.start();
+
+    // This just prevents the test from being ended early
+    function _waitDone() {
+        if (done) {
+            recycleGlobals();
+            t.end();
+            return;
+        }
+        setTimeout(_waitDone, 100);
+    }
+
+    _waitDone();
+});
+
+test('find SmartOS image', function (t) {
+    var args = ['list', '-H', '-j', '-o', 'uuid,tags', 'os=smartos'];
+    var img;
+    var imgs = {};
+    var latest;
+
+    execFile('/usr/sbin/imgadm', args, function (err, stdout) {
+        t.ifError(err, 'load images from imgadm');
+        if (!err) {
+            imgs = JSON.parse(stdout);
+            for (idx in imgs) {
+                img = imgs[idx];
+                if (img.manifest.tags.smartdc) {
+                    if (!latest || img.manifest.published_at > latest) {
+                        smartosImageUUID = img.manifest.uuid;
+                        latest = img.manifest.published_at;
+                    }
+                }
+            }
+        }
+        // If this fails you should import a SmartOS image and try again
+        t.ok(smartosImageUUID, 'found SmartOS image_uuid: '
+            + smartosImageUUID);
+        t.end();
+    });
+});
+
+
 //      - delete a VM -- shouldbe updated in VMAPI as destroyed
 //      - do all the modifications can think of on a VM:
-//         - mdata-put/delete
 //         - stop/start/reboot
-//         - modify quota using zfs
-//         - modify properties using vmadm
-//         - etc.
 //
+
+/*
+ * Create an initially empty fake VMAPI. Allow it to fill with the existing VMs
+ * on the system. Then create a new VM using the real vmadm and ensure we're
+ * able to detect the change with the real VmWatcher.
+ *
+ * We perform several changes to the VM using vmadm, zfs and zlogin/mdata-put
+ * and then ensure that each of these results in the correct update. When all
+ * updates are complete, we delete the VM.
+ *
+ */
+test('Real vmadm, fake VMAPI', function (t) {
+    var config = {
+        log: logStub,
+        server_uuid: node_uuid.v4(),
+        url: 'http://127.0.0.1/',
+        vmadm: {
+            load: vmadm.load,
+            lookup: vmadm.lookup
+        },
+        vmapi: fakeVmapi,
+        vmwatcher: VmWatcher
+    };
+    var done = false;
+    var exampleVm;
+    var modifiers;
+    var payload = {
+        alias: 'vm-agent_testvm',
+        brand: 'joyent-minimal',
+        image_uuid: smartosImageUUID,
+        uuid: node_uuid.v4(),
+        log: logStub
+    };
+
+    function _setVmadmProperty(exVm, prop, value, cb) {
+        var update = {
+            log: config.log,
+            uuid: exVm.uuid
+        };
+        update[prop] = value;
+
+        vmadm.update(update, function _onVmadmUpdate(err) {
+            t.ifError(err, 'vmadm.update ' + prop + '=' + value);
+            if (!err) {
+                // we expect prop to be updated now.
+                exVm[prop] = value;
+            }
+            cb(err);
+        });
+    }
+
+    // Create the list of modifications we're going to do here.
+    modifiers = [
+        function _setQuotaVmadm(exVm, cb) {
+            var newQuota = (exVm.quota || 10) * 2;
+            _setVmadmProperty(exVm, 'quota', newQuota, cb);
+        }, function _setQuotaZfs(exVm, cb) {
+            var newQuota = (exVm.quota || 10) * 2;
+
+            execFile('/usr/sbin/zfs',
+                ['set', 'quota=' + newQuota + 'g', 'zones/' + exVm.uuid],
+                function (err, stdout, stderr) {
+                    t.ifError(err, 'zfs set quota=' + newQuota + ': '
+                        + (err ? stderr : 'success'));
+                    if (!err) {
+                        // we expect quota to be updated now.
+                        exVm.quota = newQuota;
+                    }
+                    cb(err);
+                }
+            );
+        }, function _mdataPut(exVm, cb) {
+            execFile('/usr/sbin/zlogin',
+                [exVm.uuid, 'mdata-put', 'hello', 'world'],
+                function (err, stdout, stderr) {
+                    t.ifError(err, 'zlogin mdata-put hello=world: '
+                        + (err ? stderr : 'success'));
+                    if (!err) {
+                        // we expect metadata to be updated now.
+                        exVm.customer_metadata.hello = 'world';
+                    }
+                    cb(err);
+                }
+            );
+        }, function _setAliasVmadm(exVm, cb) {
+            var newAlias = exVm.alias + '-HACKED';
+            _setVmadmProperty(exVm, 'alias', newAlias, cb);
+        }
+    ];
+
+    // 1. When the agent starts up, we'll wait until it updates us with the
+    //    list of VMs. Note that these are real VMs on this node because we're
+    //    not faking vmadm.
+    coordinator.on('vmapi.updateServerVms', function (vmobjs, server_uuid) {
+        t.ok(true, 'saw PUT /vms: (' + Object.keys(vmobjs.vms).length + ')');
+
+        Object.keys(vmobjs.vms).forEach(function _addVmToVmapi(vm) {
+            vmapiVms.push(vmobjs.vms[vm]);
+        });
+
+        // 2. Create a VM, this should trigger the first vmapi.updateVm call.
+        smartosVmUUID = payload.uuid;
+        vmadm.create(payload, function (err, info) {
+            t.ifError(err, 'create VM');
+            if (!err && info) {
+                t.ok(info.uuid, 'new VM has uuid: ' + info.uuid);
+            } else {
+                t.fail('bailing early: vmadm.create failed');
+                done = true;
+            }
+        });
+    });
+
+    // 3. After startup the work will be done by performing an update and then
+    // ensuring the vmapi.updateVm operation occurs for that change.
+    coordinator.on('vmapi.updateVm', function (vmobj) {
+        if (vmobj.uuid !== smartosVmUUID) {
+            // ignore changes that are from other VMs on this system
+            return;
+        }
+        vasync.pipeline({arg: {}, funcs: [
+            function (arg, cb) {
+                // load the VM from vmadm if we've not done so
+                if (exampleVm) {
+                    cb();
+                    return;
+                }
+                vmadm.load({log: config.log, uuid: smartosVmUUID},
+                    function (e, vm) {
+                        t.ifError(e, 'load VM');
+                        if (!e) {
+                            exampleVm = vm;
+                        }
+                        cb(e);
+                    }
+                );
+            }, function _fixLastModified(arg, cb) {
+                // The one exception to our comparison is last_modified because
+                // last_modified will be updated when other fields are updated
+                // through vmadm. So if last_modified was updated we update the
+                // example with that so our comparison doesn't break.
+                if (vmobj.last_modified > exampleVm.last_modified) {
+                    exampleVm.last_modified = vmobj.last_modified;
+                }
+                cb();
+            }, function _compareVm(arg, cb) {
+                var diffs = diff(vmobj, exampleVm);
+
+                t.equal(diffs, undefined, 'update matches exampleVm');
+                if (!diffs) {
+                    cb();
+                    return;
+                }
+                cb(new Error('PUT to VMAPI doesn\'t match current expected'));
+            }, function _determineMode(arg, cb) {
+                // We'll be in one of 3 modes here:
+                //
+                //  a) we have modifiers to apply
+                //  b) modifications are complete and we should delete
+                //  c) we're waiting for the deletion update
+                //
+                if (modifiers.length > 0) {
+                    arg.mode = 'modify'; // a)
+                } else if (vmobj.state !== 'destroyed'
+                    || vmobj.zone_state !== 'destroyed') {
+
+                    arg.mode = 'destroy'; // b)
+                } else {
+                    arg.mode = 'destroy_wait'; // c)
+                }
+                cb();
+            }, function _applyModifier(arg, cb) {
+                if (arg.mode !== 'modify') {
+                    cb();
+                    return;
+                }
+                // If there are still modifications to be done, do the next one.
+                (modifiers.shift())(exampleVm, function _onMod(err) {
+                    t.ifError(err, 'modifier returned: '
+                        + (err ? err.message : 'success'));
+                    if (err) {
+                        modifiers = [];
+                    }
+                    cb(err);
+                });
+            }, function _destroyVm(arg, cb) {
+                if (arg.mode !== 'destroy') {
+                    cb();
+                    return;
+                }
+                // 4. With all modifications complete, we now delete the VM which
+                //    should result in one more updateVm with 'destroyed'.
+                t.ok(true, 'all modifications complete');
+                vmadm.delete({log: config.log, uuid: exampleVm.uuid},
+                    function _onDelete(err) {
+                        t.ifError(err, 'delete VM: '
+                            + (err ? err.message : 'success'));
+
+                        if (!err) {
+                            // expect one final update with state = destroyed
+                            exampleVm.state = 'destroyed';
+                            exampleVm.zone_state = 'destroyed';
+                        }
+
+                        cb(err);
+                    }
+                );
+            }, function _waitDestroy(arg, cb) {
+                if (arg.mode !== 'destroy_wait') {
+                    cb();
+                    return;
+                }
+                // 5. The VM has been destroyed and all is right with the world.
+                t.ok(true, 'VmAgent told us VM was destroyed');
+                done = true;
+                cb();
+            }
+        ]}, function (err) {
+            if (err) {
+                done = true;
+                return;
+            }
+        });
+    });
+
+    coordinator.on('vmadm.lookup', function () {
+        t.fail('should not have seen vmadm.lookup, should have real vmadm');
+        done = true;
+    });
+
+    vmapiVms = [];
+
+    t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
+    vmAgent = new VmAgent(config);
+    vmAgent.start();
+
+    // This just prevents the test from being ended early
+    function _waitDone() {
+        if (done) {
+            recycleGlobals();
+            t.end();
+            return;
+        }
+        setTimeout(_waitDone, 100);
+    }
+
+    _waitDone();
+});
