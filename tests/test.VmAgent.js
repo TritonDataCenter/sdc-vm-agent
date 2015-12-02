@@ -20,18 +20,24 @@ var VmAgent = require('../lib/vm-agent');
 var VmWatcher = require('../lib/vm-watcher').VmWatcher;
 
 var logStub = {
-    child: function () { return logStub; },
-    trace: function () { return true; },
-    debug: function () { return true; },
-    info:  function () { return true; },
-    warn:  function () { return true; },
-    error: function (err) {
+    child: function _child() {
+        return logStub;
+    },
+    trace: function _trace() {
+    },
+    debug: function _debug() {
+    },
+    info: function _info() {
+    },
+    warn: function _warn() {
+    },
+    error: function _error(err) {
         if (err.stderrLines && err.stderrLines[err.stderrLines.length - 1]
             .match(/^Requested unique lookup but found 0 results./)) {
             // ignore non-existent errors
-            return true;
+            return;
         }
-        console.log(err); return true;
+        console.log(err);
     }
 };
 
@@ -47,71 +53,71 @@ var vmapiPutErr;
 var vmapiVms = [];
 
 var standardVm = {
-    "zonename": "6d7d6f4b-4553-49f1-bc0b-7fd16dcf0f2c",
-    "autoboot": true,
-    "brand": "joyent-minimal",
-    "limit_priv": "default",
-    "v": 1,
-    "create_timestamp": "2015-11-27T05:01:25.838Z",
-    "image_uuid": "cd2d08a0-83f1-11e5-8684-f383641a9854",
-    "cpu_shares": 128,
-    "max_lwps": 1000,
-    "max_msg_ids": 4096,
-    "max_sem_ids": 4096,
-    "max_shm_ids": 4096,
-    "max_shm_memory": 128,
-    "zfs_io_priority": 10,
-    "max_physical_memory": 128,
-    "max_locked_memory": 128,
-    "max_swap": 256,
-    "cpu_cap": 100,
-    "billing_id": "73a1ca34-1e30-48c7-8681-70314a9c67d3",
-    "owner_uuid": "930896af-bf8c-48d4-885c-6573a94b1853",
-    "package_name": "sdc_128",
-    "package_version": "1.0.0",
-    "tmpfs": 128,
-    "dns_domain": "local",
-    "archive_on_delete": true,
-    "maintain_resolvers": true,
-    "resolvers": [
-      "10.192.0.11"
+    zonename: '6d7d6f4b-4553-49f1-bc0b-7fd16dcf0f2c',
+    autoboot: true,
+    brand: 'joyent-minimal',
+    limit_priv: 'default',
+    v: 1,
+    create_timestamp: '2015-11-27T05:01:25.838Z',
+    image_uuid: 'cd2d08a0-83f1-11e5-8684-f383641a9854',
+    cpu_shares: 128,
+    max_lwps: 1000,
+    max_msg_ids: 4096,
+    max_sem_ids: 4096,
+    max_shm_ids: 4096,
+    max_shm_memory: 128,
+    zfs_io_priority: 10,
+    max_physical_memory: 128,
+    max_locked_memory: 128,
+    max_swap: 256,
+    cpu_cap: 100,
+    billing_id: '73a1ca34-1e30-48c7-8681-70314a9c67d3',
+    owner_uuid: '930896af-bf8c-48d4-885c-6573a94b1853',
+    package_name: 'sdc_128',
+    package_version: '1.0.0',
+    tmpfs: 128,
+    dns_domain: 'local',
+    archive_on_delete: true,
+    maintain_resolvers: true,
+    resolvers: [
+        '10.192.0.11'
     ],
-    "alias": "testvm",
-    "nics": [
-      {
-        "interface": "net0",
-        "mac": "92:88:1a:79:75:71",
-        "vlan_id": 0,
-        "nic_tag": "admin",
-        "netmask": "255.192.0.0",
-        "ip": "10.192.0.8",
-        "ips": [
-          "10.192.0.8/10"
-        ],
-        "primary": true
-      }
+    alias: 'testvm',
+    nics: [
+        {
+            interface: 'net0',
+            mac: '92:88:1a:79:75:71',
+            vlan_id: 0,
+            nic_tag: 'admin',
+            netmask: '255.192.0.0',
+            ip: '10.192.0.8',
+            ips: [
+                '10.192.0.8/10'
+            ],
+            primary: true
+        }
     ],
-    "uuid": "6d7d6f4b-4553-49f1-bc0b-7fd16dcf0f2c",
-    "zone_state": "running",
-    "zonepath": "/zones/6d7d6f4b-4553-49f1-bc0b-7fd16dcf0f2c",
-    "zoneid": 9,
-    "last_modified": "2015-11-27T06:19:37.000Z",
-    "firewall_enabled": false,
-    "server_uuid": "564dfd57-1dd4-6fc0-d973-4f137ee12afe",
-    "datacenter_name": "coal",
-    "platform_buildstamp": "20151126T011339Z",
-    "state": "running",
-    "boot_timestamp": "2015-11-28T07:56:44.000Z",
-    "pid": 5200,
-    "customer_metadata": {},
-    "internal_metadata": {},
-    "routes": {},
-    "tags": {},
-    "quota": 25,
-    "zfs_root_recsize": 131072,
-    "zfs_filesystem": "zones/6d7d6f4b-4553-49f1-bc0b-7fd16dcf0f2c",
-    "zpool": "zones",
-    "snapshots": []
+    uuid: '6d7d6f4b-4553-49f1-bc0b-7fd16dcf0f2c',
+    zone_state: 'running',
+    zonepath: '/zones/6d7d6f4b-4553-49f1-bc0b-7fd16dcf0f2c',
+    zoneid: 9,
+    last_modified: '2015-11-27T06:19:37.000Z',
+    firewall_enabled: false,
+    server_uuid: '564dfd57-1dd4-6fc0-d973-4f137ee12afe',
+    datacenter_name: 'coal',
+    platform_buildstamp: '20151126T011339Z',
+    state: 'running',
+    boot_timestamp: '2015-11-28T07:56:44.000Z',
+    pid: 5200,
+    customer_metadata: {},
+    internal_metadata: {},
+    routes: {},
+    tags: {},
+    quota: 25,
+    zfs_root_recsize: 131072,
+    zfs_filesystem: 'zones/6d7d6f4b-4553-49f1-bc0b-7fd16dcf0f2c',
+    zpool: 'zones',
+    snapshots: []
 };
 
 
@@ -131,48 +137,50 @@ var coordinator = new Coordinator();
 
 // Fake vmadm for testing
 
-var fakeVmadm = {
-    lookup: function (search, opts, callback) {
-        process.nextTick(function _delayedLookupEmit() {
-            coordinator.emit('vmadm.lookup', search, opts);
-        });
-        if (vmadmErr) {
-            callback(vmadmErr);
-            return;
-        }
-        callback(null, vmadmVms);
-    }, load: function (opts, callback) {
-        var err;
-        var vmobj;
-        var vmobjIdx;
+function fakeVmadm() {
+}
 
-        process.nextTick(function _delayedLoadEmit() {
-            coordinator.emit('vmadm.load', opts);
-        });
-        for (vmobjIdx in vmadmVms) {
-            if (vmadmVms[vmobjIdx].uuid === opts.uuid) {
-                vmobj = vmadmVms[vmobjIdx];
-            }
+fakeVmadm.lookup = function fakeVmadmLookup(search, opts, callback) {
+    process.nextTick(function _delayedLookupEmit() {
+        coordinator.emit('vmadm.lookup', search, opts);
+    });
+    if (vmadmErr) {
+        callback(vmadmErr);
+        return;
+    }
+    callback(null, vmadmVms);
+};
+
+fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
+    var err;
+    var vmobj;
+    var vmobjIdx;
+
+    process.nextTick(function _delayedLoadEmit() {
+        coordinator.emit('vmadm.load', opts);
+    });
+    for (vmobjIdx in vmadmVms) {
+        if (vmadmVms[vmobjIdx].uuid === opts.uuid) {
+            vmobj = vmadmVms[vmobjIdx];
         }
-        if (!vmobj) {
-            err = new Error('vmadm lookup ' + opts.uuid
-                + ' failed: No such zone');
-            err.restCode = 'VmNotFound';
-            err.stderr = 'look at me, I am a fake vmadm';
-            callback(err);
-        } else if (vmadmErr) {
-            callback(vmadmErr);
-        } else {
-            callback(null, vmobj);
-        }
+    }
+    if (!vmobj) {
+        err = new Error('vmadm lookup ' + opts.uuid + ' failed: No such zone');
+        err.restCode = 'VmNotFound';
+        err.stderr = 'look at me, I am a fake vmadm';
+        callback(err);
+    } else if (vmadmErr) {
+        callback(vmadmErr);
+    } else {
+        callback(null, vmobj);
     }
 };
 
 // Fake VMAPI for testing
 
-var fakeVmapi = function (options) {
+function fakeVmapi(options) {
     //console.log('userAgent: ' + options.userAgent);
-};
+}
 
 fakeVmapi.prototype.getVms = function (server_uuid, callback) {
     process.nextTick(function _delayedGetEmit() {
@@ -231,7 +239,7 @@ fakeVmWatcher.prototype.doEmit = function (action, vm_uuid) {
 
 function createVm(template, properties) {
     var prop;
-    var re = new RegExp(template.uuid, 'g')
+    var re = new RegExp(template.uuid, 'g');
     var stringed = JSON.stringify(template);
     var uuid = node_uuid.v4();
     var vmobj = JSON.parse(stringed.replace(re, uuid));
@@ -749,7 +757,7 @@ test('VmAgent sends deletion events after PUT failures', function (t) {
         if (attempts === 3) {
             // at 3 attempts, the problem is "resolved"
             vmapiPutErr = undefined;
-        } else if (attempts === 4)  {
+        } else if (attempts === 4) {
             // should be the last one!
             setTimeout(function () {
                 t.equal(attempts, 4, 'expected 4 total attempts');
@@ -853,10 +861,7 @@ test('Real vmadm, fake VMAPI', function (t) {
         log: logStub,
         server_uuid: node_uuid.v4(),
         url: 'http://127.0.0.1/',
-        vmadm: {
-            load: vmadm.load,
-            lookup: vmadm.lookup
-        },
+        vmadm: vmadm,
         vmapi: fakeVmapi,
         vmwatcher: VmWatcher
     };

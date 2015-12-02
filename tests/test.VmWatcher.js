@@ -28,8 +28,8 @@ var EVENTS_POLL_FREQ = 100; // ms
 var logStub = {
     trace: function () { return true; },
     debug: function () { return true; },
-    info:  function () { return true; },
-    warn:  function () { return true; },
+    info: function () { return true; },
+    warn: function () { return true; },
     error: function (err) { console.log(err); return true; }
 };
 
