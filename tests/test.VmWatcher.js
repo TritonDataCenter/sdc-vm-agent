@@ -9,6 +9,7 @@
  */
 
 var execFile = require('child_process').execFile;
+var mocks = require('./mocks');
 var test = require('tape');
 var vmadm = require('vmadm');
 var VmWatcher = require('../lib/vm-watcher');
@@ -25,14 +26,6 @@ var EVENTS_POLL_FREQ = 100; // ms
 // modify disks
 // destroy KVM VM
 
-var logStub = {
-    trace: function () { return true; },
-    debug: function () { return true; },
-    info: function () { return true; },
-    warn: function () { return true; },
-    error: function (err) { console.log(err); return true; }
-};
-
 var events = [];
 var existingVms = [];
 var smartosImageUUID;
@@ -40,7 +33,7 @@ var smartosVmUUID;
 var watcher;
 
 function waitEvent(t, evt, vm_uuid, eventIdx) {
-    loops = 0;
+    var loops = 0;
 
     function _waitEvent() {
         var i;
@@ -66,6 +59,7 @@ function waitEvent(t, evt, vm_uuid, eventIdx) {
 
 test('find SmartOS image', function (t) {
     var args = ['list', '-H', '-j', '-o', 'uuid,tags', 'os=smartos'];
+    var idx;
     var img;
     var imgs = {};
     var latest;
@@ -94,7 +88,7 @@ test('load existing VMs', function (t) {
     var opts = {};
 
     opts.fields = ['uuid'];
-    opts.log = logStub;
+    opts.log = mocks.Logger;
 
     vmadm.lookup({}, opts, function _onLookup(err, vms) {
         t.ifError(err, 'vmadm lookup');
@@ -108,7 +102,7 @@ test('load existing VMs', function (t) {
 });
 
 test('starting VmWatcher', function (t) {
-    watcher = new VmWatcher({log: logStub});
+    watcher = new VmWatcher({log: mocks.Logger});
 
     t.ok(watcher, 'created VmWatcher');
 
@@ -149,7 +143,7 @@ test('create VM', function (t) {
         quota: 10
     };
 
-    payload.log = logStub;
+    payload.log = mocks.Logger;
 
     vmadm.create(payload, function (err, info) {
         t.ifError(err, 'create VM');
@@ -167,7 +161,7 @@ test('stop VM', function (t) {
     var eventIdx = events.length;
     var opts = {};
 
-    opts.log = logStub;
+    opts.log = mocks.Logger;
     opts.uuid = smartosVmUUID;
 
     vmadm.stop(opts, function (err) {
@@ -185,7 +179,7 @@ test('start VM', function (t) {
     var eventIdx = events.length;
     var opts = {};
 
-    opts.log = logStub;
+    opts.log = mocks.Logger;
     opts.uuid = smartosVmUUID;
 
     vmadm.start(opts, function (err) {
@@ -203,7 +197,7 @@ test('modify quota using ZFS', function (t) {
     var eventIdx = events.length;
 
     execFile('/usr/sbin/zfs', ['set', 'quota=20g', 'zones/' + smartosVmUUID],
-        function (err, stdout, stderr) {
+        function (err /* , stdout, stderr */) {
             t.ifError(err, 'update quota');
             if (!err) {
                 waitEvent(t, 'modify', smartosVmUUID, eventIdx);
@@ -219,7 +213,7 @@ test('put metadata using mdata-put', function (t) {
 
     execFile('/usr/sbin/zlogin',
         [smartosVmUUID, '/usr/sbin/mdata-put', 'hello', 'world'],
-        function (err, stdout, stderr) {
+        function (err /* , stdout, stderr */) {
             t.ifError(err, 'mdata-put');
             if (!err) {
                 waitEvent(t, 'modify', smartosVmUUID, eventIdx);
@@ -234,7 +228,7 @@ test('delete VM', function (t) {
     var eventIdx = events.length;
     var opts = {};
 
-    opts.log = logStub;
+    opts.log = mocks.Logger;
     opts.uuid = smartosVmUUID;
 
     vmadm.delete(opts, function (err) {
@@ -255,6 +249,7 @@ test('stop VmWatcher', function (t) {
 
 test('check SmartOS VM\'s events', function (t) {
     var evts = [];
+
     events.forEach(function (evt) {
         if (evt.vm_uuid === smartosVmUUID) {
             evts.push(evt.event);

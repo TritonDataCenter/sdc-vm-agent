@@ -13,7 +13,6 @@ var util = require('util');
 
 // GLOBAL
 var coordinator;
-
 var Logger = {
     child: function _child() {
         return Logger;
@@ -35,6 +34,12 @@ var Logger = {
         console.log(err);
     }
 };
+var vmadmVms = [];
+var vmadmErr = null;
+var vmapiVms = [];
+var vmapiGetErr = null;
+var vmapiPutErr = null;
+
 
 /*
  * This coordinator is an event emitter that we use from within the mocks to
@@ -52,8 +57,6 @@ coordinator = new Coordinator();
 /*
  * vmadm mock
  */
-var vmadmVms = [];
-var vmadmErr = null;
 
 function fakeVmadm() {
 }
@@ -74,25 +77,29 @@ fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
     var vmobj;
     var vmobjIdx;
 
-    process.nextTick(function _delayedLoadEmit() {
-        coordinator.emit('vmadm.load', opts);
-    });
-    for (vmobjIdx in vmadmVms) {
+    for (vmobjIdx = 0; vmobjIdx < vmadmVms.length; vmobjIdx++) {
         if (vmadmVms[vmobjIdx].uuid === opts.uuid) {
             vmobj = vmadmVms[vmobjIdx];
         }
     }
+
     if (!vmobj) {
         err = new Error('vmadm lookup ' + opts.uuid + ' failed: No such zone');
         err.restCode = 'VmNotFound';
         err.stderr = 'fake vmadm does not include ' + opts.uuid;
-        callback(err);
-        return;
-    } else if (vmadmErr) {
-        callback(vmadmErr);
-        return;
     }
-    callback(null, vmobj);
+
+    // Force an error if the caller wanted one.
+    if (vmadmErr) {
+        err = vmadmErr;
+        vmobj = null;
+    }
+
+    process.nextTick(function _delayedLoadEmit() {
+        coordinator.emit('vmadm.load', opts, err);
+    });
+
+    callback(err, vmobj);
 };
 
 // These last functions don't exist in the real vmadm client, but we use them to
@@ -113,7 +120,7 @@ fakeVmadm.setError = function setError(err) {
     vmadmErr = err;
 };
 
-fakeVmadm.setError = function setError(err) {
+fakeVmadm.getError = function getError() {
     return (vmadmErr);
 };
 
@@ -124,10 +131,6 @@ fakeVmadm.setError = function setError(err) {
  * NOTE: We never use the real VMAPI, so we don't check current.vmapi
  *
  */
-
-var vmapiVms = [];
-var vmapiGetErr = null;
-var vmapiPutErr = null;
 
 function fakeVmapi() {
 }
@@ -143,7 +146,7 @@ fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
     callback(null, vmapiVms);
 };
 
-fakeVmapi.prototype.updateServerVms = function updateServerVms(server_uuid, vmobjs, callback) {
+function updateServerVms(server_uuid, vmobjs, callback) {
     process.nextTick(function _delayedUpdateVmsEmit() {
         coordinator.emit('vmapi.updateServerVms', vmobjs, server_uuid);
     });
@@ -152,7 +155,8 @@ fakeVmapi.prototype.updateServerVms = function updateServerVms(server_uuid, vmob
         return;
     }
     callback();
-};
+}
+fakeVmapi.prototype.updateServerVms = updateServerVms;
 
 fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
     process.nextTick(function _delayedUpdateVmEmit() {
@@ -184,7 +188,7 @@ fakeVmapi.setGetError = function setGetError(err) {
     vmapiGetErr = err;
 };
 
-fakeVmapi.getGetError = function getGetError(err) {
+fakeVmapi.getGetError = function getGetError() {
     return (vmapiGetErr);
 };
 
@@ -192,7 +196,7 @@ fakeVmapi.setPutError = function setPutError(err) {
     vmapiPutErr = err;
 };
 
-fakeVmapi.getPutError = function getPutError(err) {
+fakeVmapi.getPutError = function getPutError() {
     return (vmapiPutErr);
 };
 

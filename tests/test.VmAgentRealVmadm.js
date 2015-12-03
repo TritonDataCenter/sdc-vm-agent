@@ -8,7 +8,6 @@
  * Copyright (c) 2015, Joyent, Inc.
  */
 
-var assert = require('assert-plus');
 var diff = require('deep-diff').diff;
 var execFile = require('child_process').execFile;
 var mockery = require('mockery');
@@ -34,8 +33,7 @@ VmAgent = require('../lib/vm-agent');
 mockery.disable();
 
 
-function newConfig()
-{
+function newConfig() {
     var config = {
         log: mocks.Logger,
         server_uuid: node_uuid.v4(),
@@ -166,6 +164,7 @@ test('Real vmadm, fake VMAPI', function (t) {
             );
         }, function _setAliasVmadm(exVm, cb) {
             var newAlias = exVm.alias + '-HACKED';
+
             _setVmadmProperty(exVm, 'alias', newAlias, cb);
         }
     ];
@@ -228,7 +227,8 @@ test('Real vmadm, fake VMAPI', function (t) {
             }, function _compareVm(arg, cb) {
                 var diffs = diff(vmobj, exampleVm);
 
-                t.equal(diffs, undefined, 'update matches exampleVm');
+                // diffs is undefined when they match
+                t.notOk(diffs, 'update matches exampleVm');
                 if (!diffs) {
                     cb();
                     return;
@@ -245,7 +245,6 @@ test('Real vmadm, fake VMAPI', function (t) {
                     arg.mode = 'modify'; // a)
                 } else if (vmobj.state !== 'destroyed'
                     || vmobj.zone_state !== 'destroyed') {
-
                     arg.mode = 'destroy'; // b)
                 } else {
                     arg.mode = 'destroy_wait'; // c)

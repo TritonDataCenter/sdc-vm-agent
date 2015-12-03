@@ -8,19 +8,17 @@
  * Copyright (c) 2015, Joyent, Inc.
  */
 
-var execFile = require('child_process').execFile;
-var EventEmitter = require('events').EventEmitter;
-var util = require('util');
-
-var assert = require('assert-plus');
 var data = require('./data');
 var diff = require('deep-diff').diff;
 var mockery = require('mockery');
 var mocks = require('./mocks');
 var test = require('tape');
 var node_uuid = require('node-uuid');
-var vasync = require('vasync');
-var vmadm = require('vmadm');
+
+
+// GLOBAL
+var coordinator = mocks.coordinator;
+var VmAgent;
 
 
 /*
@@ -31,14 +29,8 @@ mockery.enable({useCleanCache: true, warnOnUnregistered: false});
 mockery.registerMock('vmadm', mocks.Vmadm);
 mockery.registerMock('./vm-watcher', mocks.VmWatcher);
 mockery.registerMock('./vmapi-client', mocks.Vmapi);
-
-var VmAgent = require('../lib/vm-agent');
-
+VmAgent = require('../lib/vm-agent');
 mockery.disable();
-
-// GLOBAL
-var coordinator = mocks.coordinator;
-var fakeWatcher; // XXX 
 
 
 function createVm(template, properties) {
@@ -62,8 +54,7 @@ function createVm(template, properties) {
     return (vmobj);
 }
 
-function newConfig()
-{
+function newConfig() {
     var config = {
         log: mocks.Logger,
         server_uuid: node_uuid.v4(),
@@ -121,21 +112,25 @@ test('Startup VmAgent with VM missing from vmadm', function (t) {
     var config = newConfig();
     var vmAgent;
 
-    coordinator.on('vmapi.updateServerVms', function (vmobjs, server_uuid) {
-        var expected;
-        var vmapiVms = mocks.Vmapi.peekVms();
+    coordinator.on('vmapi.updateServerVms',
+        function (vmobjs /* , server_uuid */) {
+            var expected;
+            var vmapiVms = mocks.Vmapi.peekVms();
 
-        expected = vmapiVms[0];
-        expected.state = 'destroyed';
-        expected.zone_state = 'destroyed';
+            expected = vmapiVms[0];
+            expected.state = 'destroyed';
+            expected.zone_state = 'destroyed';
 
-        t.equal(Object.keys(vmobjs.vms).length, 1, 'updateServerVms payload has 1 VM');
-        t.equal(diff(vmobjs.vms[expected.uuid], expected), undefined,
-            '"PUT /vms" trying to destroy VM');
+            t.equal(Object.keys(vmobjs.vms).length, 1,
+                'updateServerVms payload has 1 VM');
+            // diff returns undefined on no difference
+            t.notEqual(diff(vmobjs.vms[expected.uuid], expected),
+                '"PUT /vms" trying to destroy VM');
 
-        resetGlobalState(vmAgent);
-        t.end();
-    });
+            resetGlobalState(vmAgent);
+            t.end();
+        }
+    );
 
     mocks.Vmapi.addVm(createVm(data.smartosPayloads[0]));
 
@@ -165,7 +160,8 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
         {vm: 0, change: 'set', field: 'quota', value: 1000},
         {vm: 1, change: 'set', field: 'cpu_cap', value: 800},
         {vm: 1, change: 'del', field: 'cpu_cap'},
-        {vm: 0, change: 'set', field: 'customer_metadata', value: {'hello': 'world'}}
+        {vm: 0, change: 'set', field: 'customer_metadata',
+            value: {hello: 'world'}}
     ];
     var vmAgent;
 
@@ -226,15 +222,16 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
             t.equal(vmobj.uuid, vmadmVms[vmadmVms.length - 1].uuid,
                 'received PUT /vms/' + vmobj.uuid + ' (' + created + ')');
             created++;
+
             if (created < create_vms) {
                 _addVm();
                 return;
-            } else {
-                // 3. We've created create_vms VMs, now perform modifications
-                mode = 'modifying';
-                _modVm();
-                return;
             }
+
+            // 3. We've created create_vms VMs, now perform modifications
+            mode = 'modifying';
+            _modVm();
+            return;
         }
 
         if (mode === 'modifying') {
@@ -246,7 +243,7 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
                 t.equal(vmobj[mod.field], mod.value, 'saw expected modification'
                     + ': ' + mod.field + '=' + JSON.stringify(mod.value));
             } else if (mod.change === 'del') {
-                t.equal(vmobj[mod.field], undefined, 'expected field to be '
+                t.notOk(vmobj.hasOwnProperty(mod.field), 'expected field to be '
                     + 'removed: ' + mod.field);
             }
 
@@ -347,7 +344,8 @@ test('VmAgent retries when VMAPI returning errors', function (t) {
         t.ok(attempts > 5, 'attempts (' + attempts + ') should be > 5 when '
             + 'we see vmapi.updateServerVms()');
         t.equal(Object.keys(vmobjs.vms).length, 1, 'updateServerVms payload has 1 VM');
-        t.equal(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]), undefined,
+        // diff returns undefined on no difference
+        t.notOk(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
            '"PUT /vms" includes missing VM');
 
         done = true;
@@ -465,7 +463,8 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function (t) {
                 return;
             }
             t.equal(attempts, 9, 'saw actual update on only attempt 9');
-            t.equal(diff(vmadmVms[0], vmobj), undefined,
+            // diff returns undefined on no difference
+            t.notOk(diff(vmadmVms[0], vmobj),
                 'all VM changes reflected in final PUT');
 
             // last attempt should have had delay of ~8000ms, so waiting 20k
@@ -481,7 +480,8 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function (t) {
         var vmadmVms = mocks.Vmadm.peekVms();
 
         t.equal(Object.keys(vmobjs.vms).length, 1, 'updateServerVms payload has 1 VM');
-        t.equal(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]), undefined,
+        // diff returns undefined on no difference
+        t.equal(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
            '"PUT /vms" includes initial VM');
 
         // wait 11s (should be past 2 of the 5 second polling windows) and then
@@ -533,7 +533,8 @@ test('VmAgent sends deletion events after PUT failures', function (t) {
     //    these, we'll un-error VMAPI and expect exactly 1 more.
     coordinator.on('vmapi.updateVm', function (vmobj, err) {
         attempts++;
-        t.equal(diff(deletedVmUpdate, vmobj), undefined, 'PUT includes VM with '
+        // diff returns undefined on no difference
+        t.notOk(diff(deletedVmUpdate, vmobj), 'PUT includes VM with '
             + 'only change [zone_]state=destroyed (' + attempts + ')'
             + (err ? ' -- ' + err.name : ''));
 
@@ -554,30 +555,34 @@ test('VmAgent sends deletion events after PUT failures', function (t) {
 
     // 1. When we see the initial update, we'll mark VMAPI as broken and delete
     //    the VM from vmadm.
-    coordinator.on('vmapi.updateServerVms', function (vmobjs, server_uuid) {
-        var deletedVm;
-        var vmadmVms = mocks.Vmadm.peekVms();
-        var vmapiPutErr;
+    coordinator.on('vmapi.updateServerVms',
+        function _updateServerVms(vmobjs /* , server_uuid */) {
+            var deletedVm;
+            var vmadmVms = mocks.Vmadm.peekVms();
+            var vmapiPutErr;
 
-        t.equal(Object.keys(vmobjs.vms).length, 1, 'updateServerVms payload has 1 VM');
-        t.equal(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]), undefined,
-           '"PUT /vms" includes missing VM');
+            t.equal(Object.keys(vmobjs.vms).length, 1,
+                'updateServerVms payload has 1 VM');
+            // diff returns undefined on no difference
+            t.notOk(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
+               '"PUT /vms" includes missing VM');
 
-        // simulate Moray down
-        vmapiPutErr = new Error('{"message":"no active connections"}');
-        vmapiPutErr.body = {message: 'no active connections'};
-        vmapiPutErr.name = 'InternalServerError';
-        mocks.Vmapi.setPutError(vmapiPutErr);
+            // simulate Moray down
+            vmapiPutErr = new Error('{"message":"no active connections"}');
+            vmapiPutErr.body = {message: 'no active connections'};
+            vmapiPutErr.name = 'InternalServerError';
+            mocks.Vmapi.setPutError(vmapiPutErr);
 
-        // now delete the VM.
-        deletedVm = vmadmVms.pop();
-        t.ok(true, 'deleted VM ' + deletedVm.uuid);
-        vmAgent.watcher.emit('VmDeleted', deletedVm.uuid);
+            // now delete the VM.
+            deletedVm = vmadmVms.pop();
+            t.ok(true, 'deleted VM ' + deletedVm.uuid);
+            vmAgent.watcher.emit('VmDeleted', deletedVm.uuid);
 
-        deletedVmUpdate = JSON.parse(JSON.stringify(deletedVm));
-        deletedVmUpdate.state = 'destroyed';
-        deletedVmUpdate.zone_state = 'destroyed';
-    });
+            deletedVmUpdate = JSON.parse(JSON.stringify(deletedVm));
+            deletedVmUpdate.state = 'destroyed';
+            deletedVmUpdate.zone_state = 'destroyed';
+        }
+    );
 
     mocks.Vmadm.addVm(createVm(data.smartosPayloads[0]));
 
