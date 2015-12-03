@@ -57,14 +57,14 @@ function waitEvent(t, evt, vm_uuid, eventIdx) {
     _waitEvent();
 }
 
-test('find SmartOS image', function (t) {
+test('find SmartOS image', function _test(t) {
     var args = ['list', '-H', '-j', '-o', 'uuid,tags', 'os=smartos'];
     var idx;
     var img;
     var imgs = {};
     var latest;
 
-    execFile('/usr/sbin/imgadm', args, function (err, stdout) {
+    execFile('/usr/sbin/imgadm', args, function _onImgadm(err, stdout) {
         t.ifError(err, 'load images from imgadm');
         if (!err) {
             imgs = JSON.parse(stdout);
@@ -84,7 +84,7 @@ test('find SmartOS image', function (t) {
     });
 });
 
-test('load existing VMs', function (t) {
+test('load existing VMs', function _test(t) {
     var opts = {};
 
     opts.fields = ['uuid'];
@@ -93,7 +93,7 @@ test('load existing VMs', function (t) {
     vmadm.lookup({}, opts, function _onLookup(err, vms) {
         t.ifError(err, 'vmadm lookup');
         if (vms) {
-            vms.forEach(function (vm) {
+            vms.forEach(function _pushVm(vm) {
                 existingVms.push(vm.uuid);
             });
         }
@@ -101,7 +101,7 @@ test('load existing VMs', function (t) {
     });
 });
 
-test('starting VmWatcher', function (t) {
+test('starting VmWatcher', function _test(t) {
     watcher = new VmWatcher({log: mocks.Logger});
 
     t.ok(watcher, 'created VmWatcher');
@@ -134,7 +134,7 @@ test('starting VmWatcher', function (t) {
     t.end();
 });
 
-test('create VM', function (t) {
+test('create VM', function _test(t) {
     var eventIdx = events.length;
     var payload = {
         alias: 'vm-agent_testvm',
@@ -145,7 +145,7 @@ test('create VM', function (t) {
 
     payload.log = mocks.Logger;
 
-    vmadm.create(payload, function (err, info) {
+    vmadm.create(payload, function _vmadmCreateCb(err, info) {
         t.ifError(err, 'create VM');
         if (!err && info) {
             t.ok(info.uuid, 'VM has uuid: ' + info.uuid);
@@ -157,100 +157,100 @@ test('create VM', function (t) {
     });
 });
 
-test('stop VM', function (t) {
+test('stop VM', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
 
     opts.log = mocks.Logger;
     opts.uuid = smartosVmUUID;
 
-    vmadm.stop(opts, function (err) {
+    vmadm.stop(opts, function _vmadmStopCb(err) {
         t.ifError(err, 'stop VM');
-        if (!err) {
+        if (err) {
+            t.end();
+        } else {
             // state should change
             waitEvent(t, 'modify', smartosVmUUID, eventIdx);
-        } else {
-            t.end();
         }
     });
 });
 
-test('start VM', function (t) {
+test('start VM', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
 
     opts.log = mocks.Logger;
     opts.uuid = smartosVmUUID;
 
-    vmadm.start(opts, function (err) {
+    vmadm.start(opts, function _vmadmStartCb(err) {
         t.ifError(err, 'start VM');
-        if (!err) {
+        if (err) {
+            t.end();
+        } else {
             // state should change
             waitEvent(t, 'modify', smartosVmUUID, eventIdx);
-        } else {
-            t.end();
         }
     });
 });
 
-test('modify quota using ZFS', function (t) {
+test('modify quota using ZFS', function _test(t) {
     var eventIdx = events.length;
 
     execFile('/usr/sbin/zfs', ['set', 'quota=20g', 'zones/' + smartosVmUUID],
-        function (err /* , stdout, stderr */) {
+        function _zfsCb(err /* , stdout, stderr */) {
             t.ifError(err, 'update quota');
-            if (!err) {
-                waitEvent(t, 'modify', smartosVmUUID, eventIdx);
-            } else {
+            if (err) {
                 t.end();
+            } else {
+                waitEvent(t, 'modify', smartosVmUUID, eventIdx);
             }
         }
     );
 });
 
-test('put metadata using mdata-put', function (t) {
+test('put metadata using mdata-put', function _test(t) {
     var eventIdx = events.length;
 
     execFile('/usr/sbin/zlogin',
         [smartosVmUUID, '/usr/sbin/mdata-put', 'hello', 'world'],
-        function (err /* , stdout, stderr */) {
+        function _mdataPutCb(err /* , stdout, stderr */) {
             t.ifError(err, 'mdata-put');
-            if (!err) {
-                waitEvent(t, 'modify', smartosVmUUID, eventIdx);
-            } else {
+            if (err) {
                 t.end();
+            } else {
+                waitEvent(t, 'modify', smartosVmUUID, eventIdx);
             }
         }
     );
 });
 
-test('delete VM', function (t) {
+test('delete VM', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
 
     opts.log = mocks.Logger;
     opts.uuid = smartosVmUUID;
 
-    vmadm.delete(opts, function (err) {
+    vmadm.delete(opts, function _vmadmDeleteCb(err) {
         t.ifError(err, 'deleted VM ' + smartosVmUUID);
-        if (!err) {
-            waitEvent(t, 'delete', smartosVmUUID, eventIdx);
-        } else {
+        if (err) {
             t.end();
+        } else {
+            waitEvent(t, 'delete', smartosVmUUID, eventIdx);
         }
     });
 });
 
-test('stop VmWatcher', function (t) {
+test('stop VmWatcher', function _test(t) {
     watcher.stop();
     t.ok(true, 'stopped watcher');
     t.end();
 });
 
-test('check SmartOS VM\'s events', function (t) {
+test('check SmartOS VM\'s events', function _test(t) {
     var evts = [];
 
-    events.forEach(function (evt) {
+    events.forEach(function _pushEvent(evt) {
         if (evt.vm_uuid === smartosVmUUID) {
             evts.push(evt.event);
         }

@@ -146,6 +146,7 @@ fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
     callback(null, vmapiVms);
 };
 
+fakeVmapi.prototype.updateServerVms = // eslint-disable-line
 function updateServerVms(server_uuid, vmobjs, callback) {
     process.nextTick(function _delayedUpdateVmsEmit() {
         coordinator.emit('vmapi.updateServerVms', vmobjs, server_uuid);
@@ -155,8 +156,7 @@ function updateServerVms(server_uuid, vmobjs, callback) {
         return;
     }
     callback();
-}
-fakeVmapi.prototype.updateServerVms = updateServerVms;
+};
 
 fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
     process.nextTick(function _delayedUpdateVmEmit() {

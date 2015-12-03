@@ -77,14 +77,15 @@ function resetGlobalState(vmAgent) {
  * "GET /vms?state=active&server_uuid=..." did not, that this missing VM is
  * included in the "PUT /vms" as part of initialization.
  */
-test('Startup VmAgent with VM missing from VMAPI', function (t) {
+test('Startup VmAgent with VM missing from VMAPI', function _test(t) {
     var config = newConfig();
     var vmAgent;
 
     coordinator.on('vmapi.updateServerVms',
-        function (vmobjs /* , server_uuid */) {
+        function _onUpdateVms(vmobjs /* , server_uuid */) {
             var vmadmVms = mocks.Vmadm.peekVms();
 
+            console.error(vmadmVms);
             t.equal(Object.keys(vmobjs.vms).length, 1,
                 'updateServerVms payload has 1 VM');
             t.notOk(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
@@ -108,12 +109,12 @@ test('Startup VmAgent with VM missing from VMAPI', function (t) {
  * included in the "PUT /vms" as part of initialization and 'has' state and
  * 'zone_state' set to 'destroyed'.
  */
-test('Startup VmAgent with VM missing from vmadm', function (t) {
+test('Startup VmAgent with VM missing from vmadm', function _test(t) {
     var config = newConfig();
     var vmAgent;
 
     coordinator.on('vmapi.updateServerVms',
-        function (vmobjs /* , server_uuid */) {
+        function _onUpdateVms(vmobjs /* , server_uuid */) {
             var expected;
             var vmapiVms = mocks.Vmapi.peekVms();
 
@@ -124,7 +125,7 @@ test('Startup VmAgent with VM missing from vmadm', function (t) {
             t.equal(Object.keys(vmobjs.vms).length, 1,
                 'updateServerVms payload has 1 VM');
             // diff returns undefined on no difference
-            t.notEqual(diff(vmobjs.vms[expected.uuid], expected),
+            t.notOk(diff(vmobjs.vms[expected.uuid], expected),
                 '"PUT /vms" trying to destroy VM');
 
             resetGlobalState(vmAgent);
@@ -145,7 +146,8 @@ test('Startup VmAgent with VM missing from vmadm', function (t) {
  * should result in a PUT /vms/<uuid> and we'll check that the relevant
  * parameters were updated correctly.
  */
-test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
+test('VmAgent with vmapi/vmadm initially empty, apply changes',
+function _test(t) {
     var created = 0;
     var create_vms = 4;
     var config = newConfig();
@@ -198,7 +200,7 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
     // 1. When VmAgent is doing its initialization, it does a vmadm.lookup for
     // all VMs on the CN, when we see that we add our first VM. That VM will be
     // processed we'll see vmapi.updateVm and move to stage 2.
-    coordinator.on('vmadm.lookup', function (search, opts) {
+    coordinator.on('vmadm.lookup', function _onVmadmLookup(search, opts) {
         t.ok(!opts.fields, 'vmadm.lookup should not have "fields"');
         if (!opts.fields) {
             // initial lookup, ready to pretend some changes
@@ -213,7 +215,7 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
     // 2. When a VM is created/modified/deleted this will be called. At first
     // (until we've created enoug VMs) we'll just add a new one each time. Then
     // we'll perform some modifications to make sure those show up as updates.
-    coordinator.on('vmapi.updateVm', function (vmobj) {
+    coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj) {
         var found;
         var mod;
         var vmadmVms = mocks.Vmadm.peekVms();
@@ -283,7 +285,8 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
         }
     });
 
-    coordinator.on('vmapi.updateServerVms', function (vmobjs, server_uuid) {
+    coordinator.on('vmapi.updateServerVms',
+    function _onUpdateVms(vmobjs, server_uuid) {
         // We shouldn't see this in this test.
         t.fail('vmapi.updateServerVms should not have been called');
     });
@@ -310,7 +313,7 @@ test('VmAgent with vmapi/vmadm initially empty, apply changes', function (t) {
  * does not exist in VMAPI. After 5 failed attempts (delta should be growing)
  * the problem should be resolved and the new VM should be PUT.
  */
-test('VmAgent retries when VMAPI returning errors', function (t) {
+test('VmAgent retries when VMAPI returning errors', function _test(t) {
     var attempts = 0;
     var config = newConfig();
     var done = false;
@@ -319,7 +322,7 @@ test('VmAgent retries when VMAPI returning errors', function (t) {
     var vmAgent;
     var vmapiGetErr;
 
-    coordinator.on('vmapi.getVms', function (server_uuid) {
+    coordinator.on('vmapi.getVms', function _onVmapiGetVms(server_uuid) {
         var delta;
 
         attempts++;
@@ -338,7 +341,8 @@ test('VmAgent retries when VMAPI returning errors', function (t) {
         }
     });
 
-    coordinator.on('vmapi.updateServerVms', function (vmobjs, server_uuid) {
+    coordinator.on('vmapi.updateServerVms',
+    function _onUpdateVms(vmobjs, server_uuid) {
         var vmadmVms = mocks.Vmadm.peekVms();
 
         t.ok(attempts > 5, 'attempts (' + attempts + ') should be > 5 when '
@@ -383,7 +387,7 @@ test('VmAgent retries when VMAPI returning errors', function (t) {
  * errors. Tests that PUT /vms/<uuid> handles re-queuing the task correctly and
  * that the final VM is PUT when it's back online.
  */
-test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function (t) {
+test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
     var attempts = 0;
     var config = newConfig();
     var done = false;
@@ -401,7 +405,7 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function (t) {
         modifications++;
     }
 
-    coordinator.on('vmapi.updateVm', function (vmobj, err) {
+    coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj, err) {
         var delta;
         var vmadmVms = mocks.Vmadm.peekVms();
         var vmapiPutErr;
@@ -411,7 +415,7 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function (t) {
         t.equal(vmobj.uuid, vmadmVms[0].uuid, 'saw PUT /vms/' + vmobj.uuid
             + (err ? ' -- ' + err.code : ''));
         if (modifications === 1) {
-            _modVm(function (vm) {
+            _modVm(function _modVmStoppedCb(vm) {
                 vm.state = 'stopped';
                 vm.zone_state = 'installed';
                 t.ok(true, 'modified VM ' + vm.uuid
@@ -425,7 +429,7 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function (t) {
             vmapiPutErr.errno = 'ECONNREFUSED';
             vmapiPutErr.syscall = 'connect';
             mocks.Vmapi.setPutError(vmapiPutErr);
-            _modVm(function (vm) {
+            _modVm(function _modVmRunningCb(vm) {
                 vm.state = 'running';
                 vm.zone_state = 'running';
                 t.ok(true, 'modified VM ' + vm.uuid
@@ -433,7 +437,7 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function (t) {
             });
             return;
         } else if (modifications === 3) {
-            _modVm(function (vm) {
+            _modVm(function _modVmMemCb(vm) {
                 vm.max_physical_memory *= 2;
                 vm.max_swap *= 2;
                 vm.max_locked_memory *= 2;
@@ -469,25 +473,26 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function (t) {
 
             // last attempt should have had delay of ~8000ms, so waiting 20k
             // here in case there's another attempt.
-            setTimeout(function () {
+            setTimeout(function _checkAttempts() {
                 t.equal(attempts, 9, 'no more attempts past 9');
                 done = true;
             }, 20000);
         }
     });
 
-    coordinator.on('vmapi.updateServerVms', function (vmobjs, server_uuid) {
+    coordinator.on('vmapi.updateServerVms',
+    function _onUpdateVms(vmobjs, server_uuid) {
         var vmadmVms = mocks.Vmadm.peekVms();
 
         t.equal(Object.keys(vmobjs.vms).length, 1, 'updateServerVms payload has 1 VM');
         // diff returns undefined on no difference
-        t.equal(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
+        t.notOk(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
            '"PUT /vms" includes initial VM');
 
         // wait 11s (should be past 2 of the 5 second polling windows) and then
         // make our first modification to the VM.
-        setTimeout(function () {
-            _modVm(function (vm) {
+        setTimeout(function _modifyLastModified() {
+            _modVm(function _modLastModifiedCb(vm) {
                 vm.last_modified = (new Date()).toISOString();
             });
         }, 11000);
@@ -521,7 +526,7 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function (t) {
  * The purpose here is to ensure that we're keeping the last seen value for the
  * VM object so that we can send a correct VMAPI update.
  */
-test('VmAgent sends deletion events after PUT failures', function (t) {
+test('VmAgent sends deletion events after PUT failures', function _test(t) {
     var attempts = 0;
     var config = newConfig();
     var deletedVmUpdate;
@@ -531,7 +536,7 @@ test('VmAgent sends deletion events after PUT failures', function (t) {
     // 2. After we've deleted the VM, we should see multiple attempts to PUT the
     //    VM with the state/zone_state 'destroyed'. When we have seen 3 of
     //    these, we'll un-error VMAPI and expect exactly 1 more.
-    coordinator.on('vmapi.updateVm', function (vmobj, err) {
+    coordinator.on('vmapi.updateVm', function _onUpdateVm(vmobj, err) {
         attempts++;
         // diff returns undefined on no difference
         t.notOk(diff(deletedVmUpdate, vmobj), 'PUT includes VM with '
@@ -543,7 +548,7 @@ test('VmAgent sends deletion events after PUT failures', function (t) {
             mocks.Vmapi.setPutError(null);
         } else if (attempts === 4) {
             // should be the last one!
-            setTimeout(function () {
+            setTimeout(function _checkAttempts() {
                 t.equal(attempts, 4, 'expected 4 total attempts');
                 done = true;
             }, 10000);

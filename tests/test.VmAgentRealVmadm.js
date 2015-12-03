@@ -50,26 +50,34 @@ function resetGlobalState(vmAgent) {
     mocks.resetState();
 }
 
-test('find SmartOS image', function (t) {
+test('find SmartOS image', function _test(t) {
     var args = ['list', '-H', '-j', '-o', 'uuid,tags', 'os=smartos'];
     var img;
     var imgs = {};
     var latest;
 
-    execFile('/usr/sbin/imgadm', args, function (err, stdout) {
+    execFile('/usr/sbin/imgadm', args, function _onImgadm(err, stdout) {
+        var imgIdx;
+
         t.ifError(err, 'load images from imgadm');
-        if (!err) {
-            imgs = JSON.parse(stdout);
-            for (idx in imgs) {
-                img = imgs[idx];
-                if (img.manifest.tags.smartdc) {
-                    if (!latest || img.manifest.published_at > latest) {
-                        smartosImageUUID = img.manifest.uuid;
-                        latest = img.manifest.published_at;
-                    }
-                }
+        if (err) {
+            t.end();
+            return;
+        }
+
+        imgs = JSON.parse(stdout);
+
+        for (imgIdx = 0; imgIdx < imgs.length; imgIdx++) {
+            img = imgs[imgIdx];
+
+            if (img.manifest.tags.smartdc
+                && (!latest || (img.manifest.published_at > latest))) {
+                // newest so far!
+                smartosImageUUID = img.manifest.uuid;
+                latest = img.manifest.published_at;
             }
         }
+
         // If this fails you should import a SmartOS image and try again
         t.ok(smartosImageUUID, 'found SmartOS image_uuid: '
             + smartosImageUUID);
@@ -97,7 +105,7 @@ test('find SmartOS image', function (t) {
  * updates are complete, we delete the VM.
  *
  */
-test('Real vmadm, fake VMAPI', function (t) {
+test('Real vmadm, fake VMAPI', function _test(t) {
     var config = newConfig();
     var done = false;
     var exampleVm;
@@ -117,6 +125,7 @@ test('Real vmadm, fake VMAPI', function (t) {
             log: config.log,
             uuid: exVm.uuid
         };
+
         update[prop] = value;
 
         vmadm.update(update, function _onVmadmUpdate(err) {
@@ -133,13 +142,14 @@ test('Real vmadm, fake VMAPI', function (t) {
     modifiers = [
         function _setQuotaVmadm(exVm, cb) {
             var newQuota = (exVm.quota || 10) * 2;
+
             _setVmadmProperty(exVm, 'quota', newQuota, cb);
         }, function _setQuotaZfs(exVm, cb) {
             var newQuota = (exVm.quota || 10) * 2;
 
             execFile('/usr/sbin/zfs',
                 ['set', 'quota=' + newQuota + 'g', 'zones/' + exVm.uuid],
-                function (err, stdout, stderr) {
+                function _onZfs(err, stdout, stderr) {
                     t.ifError(err, 'zfs set quota=' + newQuota + ': '
                         + (err ? stderr : 'success'));
                     if (!err) {
@@ -152,7 +162,7 @@ test('Real vmadm, fake VMAPI', function (t) {
         }, function _mdataPut(exVm, cb) {
             execFile('/usr/sbin/zlogin',
                 [exVm.uuid, 'mdata-put', 'hello', 'world'],
-                function (err, stdout, stderr) {
+                function _onZlogin(err, stdout, stderr) {
                     t.ifError(err, 'zlogin mdata-put hello=world: '
                         + (err ? stderr : 'success'));
                     if (!err) {
@@ -172,7 +182,8 @@ test('Real vmadm, fake VMAPI', function (t) {
     // 1. When the agent starts up, we'll wait until it updates us with the
     //    list of VMs. Note that these are real VMs on this node because we're
     //    not faking vmadm.
-    coordinator.on('vmapi.updateServerVms', function (vmobjs, server_uuid) {
+    coordinator.on('vmapi.updateServerVms',
+    function _onUpdateVms(vmobjs /* , server_uuid */) {
         t.ok(true, 'saw PUT /vms: (' + Object.keys(vmobjs.vms).length + ')');
 
         Object.keys(vmobjs.vms).forEach(function _addVmToVmapi(vm) {
@@ -181,7 +192,7 @@ test('Real vmadm, fake VMAPI', function (t) {
 
         // 2. Create a VM, this should trigger the first vmapi.updateVm call.
         smartosVmUUID = payload.uuid;
-        vmadm.create(payload, function (err, info) {
+        vmadm.create(payload, function _vmadmCreateCb(err, info) {
             t.ifError(err, 'create VM');
             if (!err && info) {
                 t.ok(info.uuid, 'new VM has uuid: ' + info.uuid);
@@ -194,20 +205,20 @@ test('Real vmadm, fake VMAPI', function (t) {
 
     // 3. After startup the work will be done by performing an update and then
     // ensuring the vmapi.updateVm operation occurs for that change.
-    coordinator.on('vmapi.updateVm', function (vmobj) {
+    coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj) {
         if (vmobj.uuid !== smartosVmUUID) {
             // ignore changes that are from other VMs on this system
             return;
         }
         vasync.pipeline({arg: {}, funcs: [
-            function (arg, cb) {
+            function _loadVm(arg, cb) {
                 // load the VM from vmadm if we've not done so
                 if (exampleVm) {
                     cb();
                     return;
                 }
                 vmadm.load({log: config.log, uuid: smartosVmUUID},
-                    function (e, vm) {
+                    function _onVmadmLoad(e, vm) {
                         t.ifError(e, 'load VM');
                         if (!e) {
                             exampleVm = vm;
@@ -296,7 +307,7 @@ test('Real vmadm, fake VMAPI', function (t) {
                 done = true;
                 cb();
             }
-        ]}, function (err) {
+        ]}, function _afterUpdateVm(err) {
             if (err) {
                 done = true;
                 return;
@@ -304,7 +315,7 @@ test('Real vmadm, fake VMAPI', function (t) {
         });
     });
 
-    coordinator.on('vmadm.lookup', function () {
+    coordinator.on('vmadm.lookup', function _onVmadmLookup() {
         t.fail('should not have seen vmadm.lookup, should have real vmadm');
         done = true;
     });
