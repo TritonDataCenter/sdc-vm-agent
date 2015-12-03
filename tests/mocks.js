@@ -1,0 +1,235 @@
+/*
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
+
+/*
+ * Copyright (c) 2015, Joyent, Inc.
+ */
+
+var EventEmitter = require('events').EventEmitter;
+var util = require('util');
+
+// GLOBAL
+var coordinator;
+
+var Logger = {
+    child: function _child() {
+        return Logger;
+    },
+    trace: function _trace() {
+    },
+    debug: function _debug() {
+    },
+    info: function _info() {
+    },
+    warn: function _warn() {
+    },
+    error: function _error(err) {
+        if (err.stderrLines && err.stderrLines[err.stderrLines.length - 1]
+            .match(/^Requested unique lookup but found 0 results./)) {
+            // ignore non-existent errors
+            return;
+        }
+        console.log(err);
+    }
+};
+
+/*
+ * This coordinator is an event emitter that we use from within the mocks to
+ * tell us when those functions have occurred. Tests can watch for events which
+ * indicate the calling of each function. and the event will include the
+ * relevant function parameters.
+ */
+function Coordinator() {
+    // Initialize necessary properties from `EventEmitter` in this instance
+    EventEmitter.call(this);
+}
+util.inherits(Coordinator, EventEmitter);
+coordinator = new Coordinator();
+
+/*
+ * vmadm mock
+ */
+var vmadmVms = [];
+var vmadmErr = null;
+
+function fakeVmadm() {
+}
+
+fakeVmadm.lookup = function fakeVmadmLookup(search, opts, callback) {
+    process.nextTick(function _delayedLookupEmit() {
+        coordinator.emit('vmadm.lookup', search, opts);
+    });
+    if (vmadmErr) {
+        callback(vmadmErr);
+        return;
+    }
+    callback(null, vmadmVms);
+};
+
+fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
+    var err;
+    var vmobj;
+    var vmobjIdx;
+
+    process.nextTick(function _delayedLoadEmit() {
+        coordinator.emit('vmadm.load', opts);
+    });
+    for (vmobjIdx in vmadmVms) {
+        if (vmadmVms[vmobjIdx].uuid === opts.uuid) {
+            vmobj = vmadmVms[vmobjIdx];
+        }
+    }
+    if (!vmobj) {
+        err = new Error('vmadm lookup ' + opts.uuid + ' failed: No such zone');
+        err.restCode = 'VmNotFound';
+        err.stderr = 'fake vmadm does not include ' + opts.uuid;
+        callback(err);
+        return;
+    } else if (vmadmErr) {
+        callback(vmadmErr);
+        return;
+    }
+    callback(null, vmobj);
+};
+
+// These last functions don't exist in the real vmadm client, but we use them to
+// manage the set of expected VMs / errors for our fake VMAPI.
+fakeVmadm.addVm = function addVm(vmobj) {
+    vmadmVms.push(vmobj);
+};
+
+fakeVmadm.clearVms = function clearVms() {
+    vmadmVms = [];
+};
+
+fakeVmadm.peekVms = function peekVms() {
+    return (vmadmVms);
+};
+
+fakeVmadm.setError = function setError(err) {
+    vmadmErr = err;
+};
+
+fakeVmadm.setError = function setError(err) {
+    return (vmadmErr);
+};
+
+
+/*
+ * Fake VMAPI for testing
+ *
+ * NOTE: We never use the real VMAPI, so we don't check current.vmapi
+ *
+ */
+
+var vmapiVms = [];
+var vmapiGetErr = null;
+var vmapiPutErr = null;
+
+function fakeVmapi() {
+}
+
+fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
+    process.nextTick(function _delayedGetEmit() {
+        coordinator.emit('vmapi.getVms', server_uuid);
+    });
+    if (vmapiGetErr) {
+        callback(vmapiGetErr);
+        return;
+    }
+    callback(null, vmapiVms);
+};
+
+fakeVmapi.prototype.updateServerVms = function updateServerVms(server_uuid, vmobjs, callback) {
+    process.nextTick(function _delayedUpdateVmsEmit() {
+        coordinator.emit('vmapi.updateServerVms', vmobjs, server_uuid);
+    });
+    if (vmapiPutErr) {
+        callback(vmapiPutErr);
+        return;
+    }
+    callback();
+};
+
+fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
+    process.nextTick(function _delayedUpdateVmEmit() {
+        coordinator.emit('vmapi.updateVm', vmobj,
+            (vmapiPutErr ? vmapiPutErr : null));
+    });
+    if (vmapiPutErr) {
+        callback(vmapiPutErr);
+        return;
+    }
+    callback();
+};
+
+// These last functions don't exist in the real vmapi client, but we use them to
+// manage the set of expected VMs / errors for our fake VMAPI.
+fakeVmapi.addVm = function addVm(vmobj) {
+    vmapiVms.push(vmobj);
+};
+
+fakeVmapi.clearVms = function clearVms() {
+    vmapiVms = [];
+};
+
+fakeVmapi.peekVms = function peekVms() {
+    return (vmapiVms);
+};
+
+fakeVmapi.setGetError = function setGetError(err) {
+    vmapiGetErr = err;
+};
+
+fakeVmapi.getGetError = function getGetError(err) {
+    return (vmapiGetErr);
+};
+
+fakeVmapi.setPutError = function setPutError(err) {
+    vmapiPutErr = err;
+};
+
+fakeVmapi.getPutError = function getPutError(err) {
+    return (vmapiPutErr);
+};
+
+// Fake VmWatcher for testing
+
+function fakeVmWatcher() {
+    var self = this;
+
+    // Initialize necessary properties from `EventEmitter` in this instance
+    EventEmitter.call(self);
+}
+util.inherits(fakeVmWatcher, EventEmitter);
+
+fakeVmWatcher.prototype.start = function start() {
+    // console.error('vmwatcher.start');
+};
+
+fakeVmWatcher.prototype.stop = function stop() {
+    // console.error('vmwatcher.start');
+};
+
+// Anything tests should do between runs to cleanup should go here.
+
+function resetState() {
+    coordinator.removeAllListeners();
+    vmadmErr = null;
+    vmadmVms = [];
+    vmapiGetErr = null;
+    vmapiPutErr = null;
+    vmapiVms = [];
+}
+
+module.exports = {
+    coordinator: coordinator,
+    Logger: Logger,
+    resetState: resetState,
+    Vmadm: fakeVmadm,
+    Vmapi: fakeVmapi,
+    VmWatcher: fakeVmWatcher
+};

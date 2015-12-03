@@ -11,7 +11,7 @@
 var execFile = require('child_process').execFile;
 var test = require('tape');
 var vmadm = require('vmadm');
-var VmWatcher = require('../lib/vm-watcher').VmWatcher;
+var VmWatcher = require('../lib/vm-watcher');
 
 // How frequently to poll the 'events' array when we're waiting for an event.
 var EVENTS_POLL_FREQ = 100; // ms

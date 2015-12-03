@@ -8,12 +8,15 @@
  * Copyright (c) 2015, Joyent, Inc.
  */
 
+var mocks = require('./mocks');
 var test = require('tape');
-var VmWatcherInternal = require('../lib/vm-watcher').__testonly__;
+var VmWatcher = require('../lib/vm-watcher');
+
+var innards = (new VmWatcher({log: mocks.Logger})).__testonly__;
 
 // these are exposed just for us!
-var cmpVm = VmWatcherInternal.cmpVm;
-var compareVms = VmWatcherInternal.compareVms;
+var cmpVm = innards.cmpVm;
+var compareVms = innards.compareVms;
 
 test('cmpVm', function _cmpVm(t) {
     t.equal(cmpVm({}, {}), true, 'cmpVm(): empty objects');

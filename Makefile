@@ -97,10 +97,11 @@ release: all deps docs $(SMF_MANIFESTS)
 	$(RELSTAGEDIR)/$(NAME)
 	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/eslint \
 	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/eslint
-	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/tape \
-	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/tape
 	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/kthxbai \
 	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/kthxbai
+	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/mockery
+	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/tape \
+	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/tape
 	uuid -v4 > $(RELSTAGEDIR)/$(NAME)/image_uuid
 	mkdir -p $(RELSTAGEDIR)/$(NAME)/node/bin
 	cp $(NODE_INSTALL)/bin/node $(RELSTAGEDIR)/$(NAME)/node/bin/
