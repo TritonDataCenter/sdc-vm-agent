@@ -8,6 +8,7 @@
  * Copyright (c) 2015, Joyent, Inc.
  */
 
+var assert = require('assert-plus');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 
@@ -31,7 +32,7 @@ var Logger = {
             // ignore non-existent errors
             return;
         }
-        console.log(err);
+        console.log(err); // eslint-disable-line
     }
 };
 var vmadmVms = [];
@@ -40,6 +41,92 @@ var vmapiVms = [];
 var vmapiGetErr = null;
 var vmapiPutErr = null;
 
+// Fields VMAPI adds if not set
+var VMAPI_DEFAULT_FIELDS = {
+    alias: null,
+    autoboot: null,
+    billing_id: null,
+    brand: null,
+    cpu_cap: null,
+    cpu_shares: null,
+    create_timestamp: null,
+    customer_metadata: {},
+    datasets: [],
+    destroyed: null,
+    firewall_enabled: false,
+    internal_metadata: {},
+    last_modified: null,
+    limit_priv: null,
+    max_locked_memory: null,
+    max_lwps: null,
+    max_physical_memory: null,
+    max_swap: null,
+    nics: [],
+    owner_uuid: null,
+    platform_buildstamp: null,
+    quota: null,
+    ram: null,
+    resolvers: null,
+    server_uuid: null,
+    snapshots: [],
+    state: null,
+    tags: {},
+    zfs_filesystem: null,
+    zfs_io_priority: null,
+    zone_state: null,
+    zonepath: null,
+    zpool: null
+};
+
+/*
+ * VMAPI translates the VM objects when reading from Moray (see sdc-vmapi
+ * lib/common/vm-common.js) and we want to be able to make VMs look like they
+ * would from VMAPI so we've copied that logic here.
+ *
+ */
+function vmapifyVm(vmobj) {
+    var defaultFields = JSON.parse(JSON.stringify(VMAPI_DEFAULT_FIELDS));
+    var newObj = JSON.parse(JSON.stringify(vmobj));
+
+    if (newObj.brand === 'kvm') {
+        [
+            'cpu_type',
+            'disks',
+            'vcpus'
+        ].forEach(function _addKvmDefaultField(f) {
+            defaultFields[f] = null;
+        });
+    } else {
+        defaultFields.image_uuid = null;
+    }
+
+    Object.keys(defaultFields).forEach(function _addMissingField(field) {
+        if (!newObj.hasOwnProperty(field)) {
+            newObj[field] = defaultFields[field];
+        }
+    });
+
+    if (!newObj.ram && newObj.max_physical_memory) {
+        newObj.ram = newObj.max_physical_memory;
+    }
+
+    return (newObj);
+}
+
+function vmadmifyVm(vmobj) {
+    var newObj = JSON.parse(JSON.stringify(vmobj));
+
+    assert.uuid(vmobj.uuid, 'vmobj.uuid');
+    assert.string(vmobj.brand, 'vmobj.brand');
+    assert.string(vmobj.state, 'vmobj.state');
+    assert.string(vmobj.zone_state, 'vmobj.zone_state');
+
+    if (!vmobj.snapshots) {
+        newObj.snapshots = [];
+    }
+
+    return (newObj);
+}
 
 /*
  * This coordinator is an event emitter that we use from within the mocks to
@@ -105,7 +192,7 @@ fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
 // These last functions don't exist in the real vmadm client, but we use them to
 // manage the set of expected VMs / errors for our fake VMAPI.
 fakeVmadm.addVm = function addVm(vmobj) {
-    vmadmVms.push(vmobj);
+    vmadmVms.push(vmadmifyVm(vmobj));
 };
 
 fakeVmadm.clearVms = function clearVms() {
@@ -173,7 +260,7 @@ fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
 // These last functions don't exist in the real vmapi client, but we use them to
 // manage the set of expected VMs / errors for our fake VMAPI.
 fakeVmapi.addVm = function addVm(vmobj) {
-    vmapiVms.push(vmobj);
+    vmapiVms.push(vmapifyVm(vmobj));
 };
 
 fakeVmapi.clearVms = function clearVms() {
@@ -218,8 +305,8 @@ fakeVmWatcher.prototype.stop = function stop() {
     // console.error('vmwatcher.start');
 };
 
-// Anything tests should do between runs to cleanup should go here.
 
+// Anything tests should do between runs to cleanup should go in resetState().
 function resetState() {
     coordinator.removeAllListeners();
     vmadmErr = null;
@@ -229,11 +316,14 @@ function resetState() {
     vmapiVms = [];
 }
 
+
 module.exports = {
     coordinator: coordinator,
     Logger: Logger,
     resetState: resetState,
     Vmadm: fakeVmadm,
+    vmadmifyVm: vmadmifyVm,
     Vmapi: fakeVmapi,
+    vmapifyVm: vmapifyVm,
     VmWatcher: fakeVmWatcher
 };

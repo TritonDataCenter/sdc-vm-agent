@@ -85,7 +85,6 @@ test('Startup VmAgent with VM missing from VMAPI', function _test(t) {
         function _onUpdateVms(vmobjs /* , server_uuid */) {
             var vmadmVms = mocks.Vmadm.peekVms();
 
-            console.error(vmadmVms);
             t.equal(Object.keys(vmobjs.vms).length, 1,
                 'updateServerVms payload has 1 VM');
             t.notOk(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
@@ -252,14 +251,15 @@ function _test(t) {
             mods.shift(); // consume this mod
 
             if (mods.length > 0) {
+                // still more to go
                 _modVm();
                 return;
-            } else {
-                // 4. We've performed all modifications, delete the VMs
-                mode = 'deleting';
-                _delVm();
-                return;
             }
+
+            // 4. We've performed all modifications, delete the VMs
+            mode = 'deleting';
+            _delVm();
+            return;
         }
 
         if (mode === 'deleting') {
@@ -347,7 +347,8 @@ test('VmAgent retries when VMAPI returning errors', function _test(t) {
 
         t.ok(attempts > 5, 'attempts (' + attempts + ') should be > 5 when '
             + 'we see vmapi.updateServerVms()');
-        t.equal(Object.keys(vmobjs.vms).length, 1, 'updateServerVms payload has 1 VM');
+        t.equal(Object.keys(vmobjs.vms).length, 1,
+            'updateServerVms payload has 1 VM');
         // diff returns undefined on no difference
         t.notOk(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
            '"PUT /vms" includes missing VM');
@@ -484,7 +485,8 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
     function _onUpdateVms(vmobjs, server_uuid) {
         var vmadmVms = mocks.Vmadm.peekVms();
 
-        t.equal(Object.keys(vmobjs.vms).length, 1, 'updateServerVms payload has 1 VM');
+        t.equal(Object.keys(vmobjs.vms).length, 1,
+            'updateServerVms payload has 1 VM');
         // diff returns undefined on no difference
         t.notOk(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
            '"PUT /vms" includes initial VM');
@@ -606,6 +608,55 @@ test('VmAgent sends deletion events after PUT failures', function _test(t) {
     }
 
     _waitDone();
+});
+
+/*
+ * vmadm has 2 VMs one which exists in VMAPI and one that doesn't. The one that
+ * doesn't is a minimal VM with only the required properties. We should see an
+ * initial update that includes only the missing one.
+ *
+ * This ensures that the additional fields VMAPI adds to the VM (which here is
+ * done through mocks.Vmapi.addVm()) do not interfere with the ability to notice
+ * that the VM is already in VMAPI.
+ */
+test('Startup VmAgent with minimal VMs', function _test(t) {
+    var config = newConfig();
+    var existingVm;
+    var missingVm;
+    var vmAgent;
+
+    coordinator.on('vmapi.updateServerVms',
+        function _onUpdateVms(vmobjs /* , server_uuid */) {
+            t.equal(Object.keys(vmobjs.vms).length, 1,
+                'updateServerVms payload has 1 VM');
+            Object.keys(vmobjs.vms).forEach(function _checkVm(vm_uuid) {
+                t.notEqual(vmobjs.vms[vm_uuid].uuid, existingVm.uuid,
+                    'update is not the existing VM');
+            });
+
+            resetGlobalState(vmAgent);
+            t.end();
+        }
+    );
+
+    // This VM is not in VMAPI, so should be in the update
+    missingVm = createVm(data.smartosPayloads[0]);
+    mocks.Vmadm.addVm(missingVm);
+
+    // This one *is* in VMAPI and vmadm, so we shouldn't update it, even though
+    // Vmapi.addVm() adds the default fields.
+    existingVm = {
+        brand: 'joyent-minimal',
+        state: 'stopped',
+        uuid: data.minimalVmapiVm.uuid,
+        zone_state: 'installed'
+    };
+    mocks.Vmadm.addVm(existingVm);
+    mocks.Vmapi.addVm(existingVm);
+
+    t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
+    vmAgent = new VmAgent(config);
+    vmAgent.start();
 });
 
 // TODO: test with 2000 VMs in vmadm, all retrying because VMAPI's busted

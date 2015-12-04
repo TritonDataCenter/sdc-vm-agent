@@ -82,6 +82,54 @@ var smartosPayloads = [
     }
 ];
 
+/*
+ * This is the minimum VM you can see from VMAPI. For a VM that looks like:
+ *
+ *  {
+ *      "uuid": "f23dab00-980e-11e5-887b-c9e599b7177b"
+ *  }
+ *
+ * in Moray.
+ */
+var minimalVmapiVm = {
+    uuid: 'f23dab00-980e-11e5-887b-c9e599b7177b',
+    alias: null,
+    autoboot: null,
+    brand: null,
+    billing_id: null,
+    cpu_cap: null,
+    cpu_shares: null,
+    create_timestamp: null,
+    customer_metadata: {},
+    datasets: [],
+    destroyed: null,
+    firewall_enabled: false,
+    internal_metadata: {},
+    last_modified: null,
+    limit_priv: null,
+    max_locked_memory: null,
+    max_lwps: null,
+    max_physical_memory: null,
+    max_swap: null,
+    nics: [],
+    owner_uuid: null,
+    platform_buildstamp: null,
+    quota: null,
+    ram: null,
+    resolvers: null,
+    server_uuid: null,
+    snapshots: [],
+    state: null,
+    tags: {},
+    zfs_filesystem: null,
+    zfs_io_priority: null,
+    zone_state: null,
+    zonepath: null,
+    zpool: null,
+    image_uuid: null
+};
+
 module.exports = {
+    minimalVmapiVm: minimalVmapiVm,
     smartosPayloads: smartosPayloads
 };

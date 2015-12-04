@@ -34,7 +34,7 @@
         "no-array-constructor": 2,
         "no-case-declarations": 2,
         "no-cond-assign": [ 2, "always" ],
-        "no-console": 0,
+        "no-console": 1,
         "no-constant-condition": 2,
         "no-dupe-args": 2,
         "no-dupe-keys": 2,
