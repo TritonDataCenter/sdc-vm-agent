@@ -286,7 +286,7 @@ function _test(t) {
     });
 
     coordinator.on('vmapi.updateServerVms',
-    function _onUpdateVms(vmobjs, server_uuid) {
+    function _onUpdateVms(vmobjs /* , server_uuid */) {
         // We shouldn't see this in this test.
         t.fail('vmapi.updateServerVms should not have been called');
     });
