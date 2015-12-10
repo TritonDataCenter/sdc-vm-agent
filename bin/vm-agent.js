@@ -9,22 +9,24 @@
  */
 
 /*
- * vm-agent.js
+ * Loads the config and creates a VmAgent instance. See lib/vm-agent.js for more
+ * detailed information on operation.
+ *
  */
 
-var bunyan = require('bunyan');
-var execFile = require('child_process').execFile;
 var fs = require('fs');
+var execFile = require('child_process').execFile;
+
+var bunyan = require('bunyan');
 var vasync = require('vasync');
-
-var logLevel = (process.env.LOG_LEVEL || 'debug');
-var logger = bunyan.createLogger({name: 'vm-agent', level: logLevel});
-
 var VmAgent = require('../lib');
 
-var config = {log: logger};
-var sdcConfig;
+// GLOBALS
 var agentConfig;
+var config;
+var logLevel = (process.env.LOG_LEVEL || 'debug');
+var logger = bunyan.createLogger({name: 'vm-agent', level: logLevel});
+var sdcConfig;
 var sysinfo;
 
 
@@ -110,6 +112,7 @@ vasync.pipeline({funcs: [
         process.exit(1);
     }
 
+    config = {log: logger};
     config.server_uuid = sysinfo.UUID;
     config.url = agentConfig.vmapi.url;
 

@@ -19,6 +19,7 @@ var node_uuid = require('node-uuid');
 // GLOBAL
 var coordinator = mocks.coordinator;
 var VmAgent;
+var WAIT_POLL_FREQ = 100; // ms
 
 
 /*
@@ -286,7 +287,7 @@ function _test(t) {
     });
 
     coordinator.on('vmapi.updateServerVms',
-    function _onUpdateVms(vmobjs /* , server_uuid */) {
+    function _onUpdateVms(/* vmobjs, server_uuid */) {
         // We shouldn't see this in this test.
         t.fail('vmapi.updateServerVms should not have been called');
     });
@@ -302,7 +303,7 @@ function _test(t) {
             t.end();
             return;
         }
-        setTimeout(_waitDone, 100);
+        setTimeout(_waitDone, WAIT_POLL_FREQ);
     }
 
     _waitDone();
@@ -319,10 +320,11 @@ test('VmAgent retries when VMAPI returning errors', function _test(t) {
     var done = false;
     var prevDelta = 0;
     var prevTimestamp = 0;
+    var resolveAfter = 5;
     var vmAgent;
     var vmapiGetErr;
 
-    coordinator.on('vmapi.getVms', function _onVmapiGetVms(server_uuid) {
+    coordinator.on('vmapi.getVms', function _onVmapiGetVms(/* server_uuid */) {
         var delta;
 
         attempts++;
@@ -335,18 +337,18 @@ test('VmAgent retries when VMAPI returning errors', function _test(t) {
         }
         prevTimestamp = (new Date()).getTime();
 
-        if (attempts >= 5) {
-            // at 5 attempts, the problem is "resolved"
+        if (attempts >= resolveAfter) {
+            // at resolveAfter attempts, the problem is "resolved"
             mocks.Vmapi.setGetError(null);
         }
     });
 
     coordinator.on('vmapi.updateServerVms',
-    function _onUpdateVms(vmobjs, server_uuid) {
+    function _onUpdateVms(vmobjs /* , server_uuid */) {
         var vmadmVms = mocks.Vmadm.peekVms();
 
-        t.ok(attempts > 5, 'attempts (' + attempts + ') should be > 5 when '
-            + 'we see vmapi.updateServerVms()');
+        t.ok(attempts > resolveAfter, 'attempts (' + attempts + ') should be > '
+            + resolveAfter + ' when we see vmapi.updateServerVms()');
         t.equal(Object.keys(vmobjs.vms).length, 1,
             'updateServerVms payload has 1 VM');
         // diff returns undefined on no difference
@@ -376,7 +378,7 @@ test('VmAgent retries when VMAPI returning errors', function _test(t) {
             t.end();
             return;
         }
-        setTimeout(_waitDone, 100);
+        setTimeout(_waitDone, WAIT_POLL_FREQ);
     }
 
     _waitDone();
@@ -408,8 +410,10 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
 
     coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj, err) {
         var delta;
+        var fixAfter = 7;
         var vmadmVms = mocks.Vmadm.peekVms();
         var vmapiPutErr;
+        var waitFinalAttempt = 20000; // ms
 
         attempts++;
 
@@ -457,17 +461,18 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
         prevTimestamp = (new Date()).getTime();
 
         // We've made modifications to vmadmVms[0] while vmapi updates were
-        // failing. Once it has failed > 5 times, we'll "fix the glitch" and
-        // the next update should include all our changes. We should get exactly
-        // 1 more update.
+        // failing. Once it has failed > fixAfter times, we'll "fix the glitch"
+        // and the next update should include all our changes. We should get
+        // exactly 1 more update.
 
-        if (attempts > 7) {
+        if (attempts > fixAfter) {
             if (mocks.Vmapi.getPutError()) {
                 // at 5 attempts, the problem is "resolved"
                 mocks.Vmapi.setPutError(null);
                 return;
             }
-            t.equal(attempts, 9, 'saw actual update on only attempt 9');
+            t.equal(attempts, fixAfter + 2, 'saw actual update on only attempt '
+                + fixAfter + 2);
             // diff returns undefined on no difference
             t.notOk(diff(vmadmVms[0], vmobj),
                 'all VM changes reflected in final PUT');
@@ -475,14 +480,15 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
             // last attempt should have had delay of ~8000ms, so waiting 20k
             // here in case there's another attempt.
             setTimeout(function _checkAttempts() {
-                t.equal(attempts, 9, 'no more attempts past 9');
+                t.equal(attempts, fixAfter + 2, 'no more attempts past '
+                    + fixAfter + 2);
                 done = true;
-            }, 20000);
+            }, waitFinalAttempt);
         }
     });
 
     coordinator.on('vmapi.updateServerVms',
-    function _onUpdateVms(vmobjs, server_uuid) {
+    function _onUpdateVms(vmobjs /* , server_uuid */) {
         var vmadmVms = mocks.Vmadm.peekVms();
 
         t.equal(Object.keys(vmobjs.vms).length, 1,
@@ -513,7 +519,7 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
             t.end();
             return;
         }
-        setTimeout(_waitDone, 100);
+        setTimeout(_waitDone, WAIT_POLL_FREQ);
     }
 
     _waitDone();
@@ -604,7 +610,7 @@ test('VmAgent sends deletion events after PUT failures', function _test(t) {
             t.end();
             return;
         }
-        setTimeout(_waitDone, 100);
+        setTimeout(_waitDone, WAIT_POLL_FREQ);
     }
 
     _waitDone();

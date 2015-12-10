@@ -49,10 +49,10 @@ Typically sdc-vm-agent development is done by:
 At the moment, sdc-vm-agent testing is done by running the VMAPI test suite.
 SSH into a running SDC and run the following commands:
 
-	touch /lib/sdc/.sdc-test-no-production-data
-	/zones/`vmadm lookup -1 alias=vmapi0`/root/opt/smartdc/vmapi/test/runtests
+    touch /lib/sdc/.sdc-test-no-production-data
+    /zones/`vmadm lookup -1 alias=vmapi0`/root/opt/smartdc/vmapi/test/runtests
 
 The vm-agent SMF service log can be inspected while running the VMAPI tests by
 calling:
 
-	tail -f `svcs -L vm-agent` | bunyan
+    tail -f `svcs -L vm-agent` | bunyan

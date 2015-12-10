@@ -10,9 +10,12 @@
 
 var mocks = require('./mocks');
 var test = require('tape');
-var VmWatcher = require('../lib/vm-watcher');
+var PeriodicWatcher = require('../lib/watchers/periodic-watcher');
 
-var innards = (new VmWatcher({log: mocks.Logger})).__testonly__;
+var innards = (new PeriodicWatcher({
+    log: mocks.Logger,
+    updateVm: function _updateVm() { throw new Error('should not be reached'); }
+})).__testonly__;
 
 // these are exposed just for us!
 var cmpVm = innards.cmpVm;

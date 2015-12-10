@@ -8,6 +8,7 @@
  * Copyright (c) 2015, Joyent, Inc.
  */
 
+var common = require('./common');
 var execFile = require('child_process').execFile;
 var mocks = require('./mocks');
 var test = require('tape');
@@ -58,28 +59,8 @@ function waitEvent(t, evt, vm_uuid, eventIdx) {
 }
 
 test('find SmartOS image', function _test(t) {
-    var args = ['list', '-H', '-j', '-o', 'uuid,tags', 'os=smartos'];
-    var idx;
-    var img;
-    var imgs = {};
-    var latest;
-
-    execFile('/usr/sbin/imgadm', args, function _onImgadm(err, stdout) {
-        t.ifError(err, 'load images from imgadm');
-        if (!err) {
-            imgs = JSON.parse(stdout);
-            for (idx in imgs) {
-                img = imgs[idx];
-                if (img.manifest.tags.smartdc) {
-                    if (!latest || img.manifest.published_at > latest) {
-                        smartosImageUUID = img.manifest.uuid;
-                        latest = img.manifest.published_at;
-                    }
-                }
-            }
-        }
-        t.ok(smartosImageUUID, 'found SmartOS image_uuid: '
-            + smartosImageUUID);
+    common.testFindSmartosImage(t, function _findSmartosCb(latest) {
+        smartosImageUUID = latest;
         t.end();
     });
 });
