@@ -31,6 +31,7 @@ function testFindSmartosImage(t, callback) {
     });
 }
 
+
 module.exports = {
     testFindSmartosImage: testFindSmartosImage
 };

@@ -11,6 +11,7 @@
 var assert = require('assert-plus');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
+var VMAPI = require('../lib/vmapi-client');
 
 // GLOBAL
 var coordinator;
@@ -41,42 +42,6 @@ var vmapiVms = [];
 var vmapiGetErr = null;
 var vmapiPutErr = null;
 
-// Fields VMAPI adds if not set
-var VMAPI_DEFAULT_FIELDS = {
-    alias: null,
-    autoboot: null,
-    billing_id: null,
-    brand: null,
-    cpu_cap: null,
-    cpu_shares: null,
-    create_timestamp: null,
-    customer_metadata: {},
-    datasets: [],
-    destroyed: null,
-    firewall_enabled: false,
-    internal_metadata: {},
-    last_modified: null,
-    limit_priv: null,
-    max_locked_memory: null,
-    max_lwps: null,
-    max_physical_memory: null,
-    max_swap: null,
-    nics: [],
-    owner_uuid: null,
-    platform_buildstamp: null,
-    quota: null,
-    ram: null,
-    resolvers: null,
-    server_uuid: null,
-    snapshots: [],
-    state: null,
-    tags: {},
-    zfs_filesystem: null,
-    zfs_io_priority: null,
-    zone_state: null,
-    zonepath: null,
-    zpool: null
-};
 
 /*
  * VMAPI translates the VM objects when reading from Moray (see sdc-vmapi
@@ -85,7 +50,7 @@ var VMAPI_DEFAULT_FIELDS = {
  *
  */
 function vmapifyVm(vmobj) {
-    var defaultFields = JSON.parse(JSON.stringify(VMAPI_DEFAULT_FIELDS));
+    var defaultFields = JSON.parse(JSON.stringify(VMAPI.VMAPI_DEFAULT_FIELDS));
     var newObj = JSON.parse(JSON.stringify(vmobj));
 
     if (newObj.brand === 'kvm') {
@@ -113,6 +78,7 @@ function vmapifyVm(vmobj) {
     return (newObj);
 }
 
+
 function vmadmifyVm(vmobj) {
     var newObj = JSON.parse(JSON.stringify(vmobj));
 
@@ -128,6 +94,7 @@ function vmadmifyVm(vmobj) {
     return (newObj);
 }
 
+
 /*
  * This coordinator is an event emitter that we use from within the mocks to
  * tell us when those functions have occurred. Tests can watch for events which
@@ -141,12 +108,14 @@ function Coordinator() {
 util.inherits(Coordinator, EventEmitter);
 coordinator = new Coordinator();
 
+
 /*
  * vmadm mock
  */
 
 function fakeVmadm() {
 }
+
 
 fakeVmadm.lookup = function fakeVmadmLookup(search, opts, callback) {
     process.nextTick(function _delayedLookupEmit() {
@@ -158,6 +127,7 @@ fakeVmadm.lookup = function fakeVmadmLookup(search, opts, callback) {
     }
     callback(null, vmadmVms);
 };
+
 
 fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
     var err;
@@ -189,23 +159,28 @@ fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
     callback(err, vmobj);
 };
 
+
 // These last functions don't exist in the real vmadm client, but we use them to
 // manage the set of expected VMs / errors for our fake VMAPI.
 fakeVmadm.addVm = function addVm(vmobj) {
     vmadmVms.push(vmadmifyVm(vmobj));
 };
 
+
 fakeVmadm.clearVms = function clearVms() {
     vmadmVms = [];
 };
+
 
 fakeVmadm.peekVms = function peekVms() {
     return (vmadmVms);
 };
 
+
 fakeVmadm.setError = function setError(err) {
     vmadmErr = err;
 };
+
 
 fakeVmadm.getError = function getError() {
     return (vmadmErr);
@@ -222,6 +197,7 @@ fakeVmadm.getError = function getError() {
 function fakeVmapi() {
 }
 
+
 fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
     process.nextTick(function _delayedGetEmit() {
         coordinator.emit('vmapi.getVms', server_uuid);
@@ -232,6 +208,7 @@ fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
     }
     callback(null, vmapiVms);
 };
+
 
 fakeVmapi.prototype.updateServerVms = // eslint-disable-line
 function updateServerVms(server_uuid, vmobjs, callback) {
@@ -245,6 +222,7 @@ function updateServerVms(server_uuid, vmobjs, callback) {
     callback();
 };
 
+
 fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
     process.nextTick(function _delayedUpdateVmEmit() {
         coordinator.emit('vmapi.updateVm', vmobj,
@@ -257,35 +235,47 @@ fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
     callback();
 };
 
+
 // These last functions don't exist in the real vmapi client, but we use them to
 // manage the set of expected VMs / errors for our fake VMAPI.
 fakeVmapi.addVm = function addVm(vmobj) {
     vmapiVms.push(vmapifyVm(vmobj));
 };
 
+
 fakeVmapi.clearVms = function clearVms() {
     vmapiVms = [];
 };
+
 
 fakeVmapi.peekVms = function peekVms() {
     return (vmapiVms);
 };
 
+
 fakeVmapi.setGetError = function setGetError(err) {
     vmapiGetErr = err;
 };
+
 
 fakeVmapi.getGetError = function getGetError() {
     return (vmapiGetErr);
 };
 
+
 fakeVmapi.setPutError = function setPutError(err) {
     vmapiPutErr = err;
 };
 
+
 fakeVmapi.getPutError = function getPutError() {
     return (vmapiPutErr);
 };
+
+
+fakeVmapi.VMAPI_DEFAULT_FIELDS = VMAPI.VMAPI_DEFAULT_FIELDS;
+fakeVmapi.VMAPI_UNSET_FIELDS = VMAPI.VMAPI_UNSET_FIELDS;
+
 
 // Fake VmWatcher for testing
 
@@ -297,9 +287,11 @@ function fakeVmWatcher() {
 }
 util.inherits(fakeVmWatcher, EventEmitter);
 
+
 fakeVmWatcher.prototype.start = function start() {
     // console.error('vmwatcher.start');
 };
+
 
 fakeVmWatcher.prototype.stop = function stop() {
     // console.error('vmwatcher.start');

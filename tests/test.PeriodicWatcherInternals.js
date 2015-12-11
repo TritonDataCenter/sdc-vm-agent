@@ -14,12 +14,15 @@ var PeriodicWatcher = require('../lib/watchers/periodic-watcher');
 
 var innards = (new PeriodicWatcher({
     log: mocks.Logger,
-    updateVm: function _updateVm() { throw new Error('should not be reached'); }
+    updateVm: function _updateVm() {
+        throw new Error('should not be reached');
+    }
 })).__testonly__;
 
 // these are exposed just for us!
 var cmpVm = innards.cmpVm;
 var compareVms = innards.compareVms;
+
 
 test('cmpVm', function _cmpVm(t) {
     t.equal(cmpVm({}, {}), true, 'cmpVm(): empty objects');

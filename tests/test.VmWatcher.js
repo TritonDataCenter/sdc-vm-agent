@@ -33,6 +33,7 @@ var smartosImageUUID;
 var smartosVmUUID;
 var watcher;
 
+
 function waitEvent(t, evt, vm_uuid, eventIdx) {
     var loops = 0;
 
@@ -58,12 +59,14 @@ function waitEvent(t, evt, vm_uuid, eventIdx) {
     _waitEvent();
 }
 
+
 test('find SmartOS image', function _test(t) {
     common.testFindSmartosImage(t, function _findSmartosCb(latest) {
         smartosImageUUID = latest;
         t.end();
     });
 });
+
 
 test('load existing VMs', function _test(t) {
     var opts = {};
@@ -81,6 +84,7 @@ test('load existing VMs', function _test(t) {
         t.end();
     });
 });
+
 
 test('starting VmWatcher', function _test(t) {
     watcher = new VmWatcher({log: mocks.Logger});
@@ -115,6 +119,7 @@ test('starting VmWatcher', function _test(t) {
     t.end();
 });
 
+
 test('create VM', function _test(t) {
     var eventIdx = events.length;
     var payload = {
@@ -138,6 +143,7 @@ test('create VM', function _test(t) {
     });
 });
 
+
 test('stop VM', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
@@ -155,6 +161,7 @@ test('stop VM', function _test(t) {
         }
     });
 });
+
 
 test('start VM', function _test(t) {
     var eventIdx = events.length;
@@ -174,6 +181,7 @@ test('start VM', function _test(t) {
     });
 });
 
+
 test('modify quota using ZFS', function _test(t) {
     var eventIdx = events.length;
 
@@ -188,6 +196,7 @@ test('modify quota using ZFS', function _test(t) {
         }
     );
 });
+
 
 test('put metadata using mdata-put', function _test(t) {
     var eventIdx = events.length;
@@ -204,6 +213,7 @@ test('put metadata using mdata-put', function _test(t) {
         }
     );
 });
+
 
 test('delete VM', function _test(t) {
     var eventIdx = events.length;
@@ -222,11 +232,13 @@ test('delete VM', function _test(t) {
     });
 });
 
+
 test('stop VmWatcher', function _test(t) {
     watcher.stop();
     t.ok(true, 'stopped watcher');
     t.end();
 });
+
 
 test('check SmartOS VM\'s events', function _test(t) {
     var evts = [];

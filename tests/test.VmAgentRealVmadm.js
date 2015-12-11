@@ -28,6 +28,7 @@ var VmAgent;
 // Frequency to poll the updates array for changes. (ms)
 var UPDATES_POLL_FREQ = 50;
 
+
 /*
  * Create a VmAgent with VMAPI mocked out using mocks.Vmapi
  */
@@ -35,6 +36,7 @@ mockery.enable({useCleanCache: true, warnOnUnregistered: false});
 mockery.registerMock('./vmapi-client', mocks.Vmapi);
 VmAgent = require('../lib/vm-agent');
 mockery.disable();
+
 
 function newConfig() {
     var config = {
@@ -46,6 +48,7 @@ function newConfig() {
     return (config);
 }
 
+
 function resetGlobalState(vmAgent) {
     if (vmAgent) {
         vmAgent.stop();
@@ -53,12 +56,14 @@ function resetGlobalState(vmAgent) {
     mocks.resetState();
 }
 
+
 test('find SmartOS image', function _test(t) {
     common.testFindSmartosImage(t, function _findSmartosCb(latest) {
         smartosImageUUID = latest;
         t.end();
     });
 });
+
 
 //
 // TODO: more modifiers:
@@ -122,6 +127,7 @@ function performThenWait(performFn, callback) {
         waitForUpdate(startIdx, params, callback);
     });
 }
+
 
 /*
  * Create an initially empty fake VMAPI. Allow it to fill with the existing VMs

@@ -24,6 +24,7 @@ var smartosImageUUID;
 var smartosVmUUID;
 var watcher;
 
+
 function waitEvent(t, evt, vmUuid, eventIdx) {
     var loops = 0;
 
@@ -49,12 +50,14 @@ function waitEvent(t, evt, vmUuid, eventIdx) {
     _waitEvent();
 }
 
+
 test('find SmartOS image', function _test(t) {
     common.testFindSmartosImage(t, function _findSmartosCb(latest) {
         smartosImageUUID = latest;
         t.end();
     });
 });
+
 
 test('load existing VMs', function _test(t) {
     var opts = {};
@@ -72,6 +75,7 @@ test('load existing VMs', function _test(t) {
         t.end();
     });
 });
+
 
 test('starting FsWatcher', function _test(t) {
     function _onVmUpdate(vmUuid, updateType /* , updateObj */) {
@@ -97,6 +101,7 @@ test('starting FsWatcher', function _test(t) {
     t.end();
 });
 
+
 test('create VM', function _test(t) {
     var eventIdx = events.length;
     var payload = {
@@ -120,6 +125,7 @@ test('create VM', function _test(t) {
     });
 });
 
+
 test('put metadata using mdata-put', function _test(t) {
     var eventIdx = events.length;
 
@@ -135,6 +141,7 @@ test('put metadata using mdata-put', function _test(t) {
         }
     );
 });
+
 
 test('delete VM', function _test(t) {
     var eventIdx = events.length;
@@ -153,11 +160,13 @@ test('delete VM', function _test(t) {
     });
 });
 
+
 test('stop FsWatcher', function _test(t) {
     watcher.stop();
     t.ok(true, 'stopped watcher');
     t.end();
 });
+
 
 test('check SmartOS VM\'s events', function _test(t) {
     var evts = [];
