@@ -12,6 +12,7 @@ var assert = require('assert-plus');
 var EventEmitter = require('events').EventEmitter;
 var util = require('util');
 var VMAPI = require('../lib/vmapi-client');
+var VmWatcher = require('../lib/vm-watcher');
 
 // GLOBAL
 var coordinator;
@@ -296,6 +297,9 @@ fakeVmWatcher.prototype.start = function start() {
 fakeVmWatcher.prototype.stop = function stop() {
     // console.error('vmwatcher.start');
 };
+
+
+fakeVmWatcher.WATCHED_FIELDS = VmWatcher.WATCHED_FIELDS;
 
 
 // Anything tests should do between runs to cleanup should go in resetState().

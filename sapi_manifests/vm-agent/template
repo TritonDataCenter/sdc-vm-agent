@@ -1,4 +1,5 @@
 {
-	"vmapi": { "url": "http://{{{VMAPI_SERVICE}}}" },
-	"no_rabbit": {{#no_rabbit}}true{{/no_rabbit}}{{^no_rabbit}}false{{/no_rabbit}}
+    {{#periodic_interval}}"periodic_interval": {{{periodic_interval}}},{{/periodic_interval}}
+    "vmapi": { "url": "http://{{{VMAPI_SERVICE}}}" },
+    "no_rabbit": {{#no_rabbit}}true{{/no_rabbit}}{{^no_rabbit}}false{{/no_rabbit}}
 }

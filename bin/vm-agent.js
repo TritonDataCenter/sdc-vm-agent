@@ -116,6 +116,10 @@ vasync.pipeline({funcs: [
     config.server_uuid = sysinfo.UUID;
     config.url = agentConfig.vmapi.url;
 
+    if (agentConfig.periodic_interval) {
+        config.periodicInterval = agentConfig.periodic_interval;
+    }
+
     if (!config.url) {
         logger.fatal('config.url is required');
         process.exit(1);

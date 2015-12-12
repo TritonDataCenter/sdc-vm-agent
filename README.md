@@ -5,7 +5,7 @@
 -->
 
 <!--
-    Copyright (c) 2014, Joyent, Inc.
+    Copyright (c) 2015, Joyent, Inc.
 -->
 
 
@@ -14,6 +14,8 @@
 The SDC VM agent is a library for keeping track of VM changes on an SDC data
 center. There is one VM agent installed per Compute Node. VM changes trigger
 updates on [VMAPI](https://github.com/joyent/sdc-vmapi) so data is persisted.
+
+See the header of lib/vm-agent.js for more details on how vm-agent works.
 
 This repository is part of the Joyent SmartDataCenter project (SDC).  For
 contribution guidelines, issues, and general documentation, visit the main
@@ -46,13 +48,11 @@ Typically sdc-vm-agent development is done by:
 
 ## Testing
 
-At the moment, sdc-vm-agent testing is done by running the VMAPI test suite.
-SSH into a running SDC and run the following commands:
+To run the vm-agent tests, go to the GZ and:
 
-    touch /lib/sdc/.sdc-test-no-production-data
-    /zones/`vmadm lookup -1 alias=vmapi0`/root/opt/smartdc/vmapi/test/runtests
+    cd /opt/smartdc/agents/lib/node_modules/vm-agent
+    ./runtests
 
-The vm-agent SMF service log can be inspected while running the VMAPI tests by
-calling:
+The vm-agent SMF service log can be inspected while running the tests by calling:
 
     tail -f `svcs -L vm-agent` | bunyan
