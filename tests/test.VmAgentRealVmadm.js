@@ -25,6 +25,9 @@ var updates = [];
 var smartosImageUUID;
 var VmAgent;
 
+// For tests we can lower the frequency the periodic watcher polls so we finish
+// in more reasonable time.
+var PERIODIC_INTERVAL = 1000;
 // Frequency to poll the updates array for changes. (ms)
 var UPDATES_POLL_FREQ = 50;
 
@@ -42,6 +45,7 @@ function newConfig() {
     var config = {
         log: mocks.Logger,
         server_uuid: node_uuid.v4(),
+        periodicInterval: PERIODIC_INTERVAL,
         url: 'http://127.0.0.1/'
     };
 
@@ -207,12 +211,12 @@ test('Real vmadm, fake VMAPI', function _test(t) {
             // are real VMs on the node because we're not faking vmadm.
             coordinator.once('vmapi.updateServerVms',
             function _onUpdateVms(vmobjs /* , server_uuid */) {
-                t.ok(true, 'saw PUT /vms: (' + Object.keys(vmobjs.vms).length
+                t.ok(true, 'saw PUT /vms: (' + Object.keys(vmobjs).length
                     + ')');
 
-                Object.keys(vmobjs.vms).forEach(function _addVmToVmapi(vm) {
+                Object.keys(vmobjs).forEach(function _addVmToVmapi(vm) {
                     // ignore updates from VMs that existed when we started
-                    mocks.Vmapi.addVm(vmobjs.vms[vm]);
+                    mocks.Vmapi.addVm(vmobjs[vm]);
                 });
 
                 cb();
@@ -285,18 +289,6 @@ test('Real vmadm, fake VMAPI', function _test(t) {
         updates.push(vmobj);
     });
 
-    /*
-            }, function _fixLastModified(arg, cb) {
-                // The one exception to our comparison is last_modified because
-                // last_modified will be updated when other fields are updated
-                // through vmadm. So if last_modified was updated we update the
-                // example with that so our comparison doesn't break.
-                if (vmobj.last_modified > exampleVm.last_modified) {
-                    exampleVm.last_modified = vmobj.last_modified;
-                }
-                cb();
-    */
-
     coordinator.on('vmadm.lookup', function _onVmadmLookup() {
         t.fail('should not have seen vmadm.lookup, should have real vmadm');
     });
@@ -304,18 +296,4 @@ test('Real vmadm, fake VMAPI', function _test(t) {
     t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
     vmAgent = new VmAgent(config);
     vmAgent.start();
-
-    /*
-    // This just prevents the test from being ended early
-    function _waitDone() {
-        if (done) {
-            resetGlobalState(vmAgent); // so it's clean for the next test
-            t.end();
-            return;
-        }
-        setTimeout(_waitDone, 100);
-    }
-
-    _waitDone();
-    */
 });

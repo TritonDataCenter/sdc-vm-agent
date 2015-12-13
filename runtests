@@ -42,13 +42,16 @@ if [[ $(id -u) != 0 ]]; then
     exit 1
 fi
 
+failed_tests=0
 set +o errexit
 set -o pipefail
-(for t in $(ls tests/test.*.js); do
+for t in $(ls tests/test.*.js); do
     ${ROOT}/node/bin/node --abort_on_uncaught_exception ${t} \
         | tee -a /tmp/test.output.$$
-done)
-TEST_EXIT_CODE=$?
+    if [[ $? != 0 ]]; then
+        failed_tests=$((${failed_tests} + 1))
+    fi
+done
 set +o pipefail
 set -o errexit
 
@@ -64,10 +67,8 @@ skipped=$(grep "^# skip  [0-9]" /tmp/test.output.$$ | tr -s ' ' | cut -d ' ' -f3
 [[ -z ${skipped} ]] && skipped=0
 
 fail=$((${tests} - ${passed} - ${skipped}))
-
-if [[ ${TEST_EXIT_CODE} != 0 ]]; then
-    fail=$((${fail} + 1))
-    tests="?"
+if [[ ${failed_tests} != 0 ]]; then
+    fail=$((${fail} + ${failed_tests}))
 fi
 
 if [[ -t 0 ]]; then
@@ -75,9 +76,7 @@ if [[ -t 0 ]]; then
     echo "#"
     echo "# $1 TEST COMPLETE IN ${elapsed} SECONDS, SUMMARY:"
     echo "#"
-    if [[ ${tests} != "?" ]]; then
-        echo -e "# \033[32mPASS: ${passed} / ${tests}\033[39m"
-    fi
+    echo -e "# \033[32mPASS: ${passed} / ${tests}\033[39m"
     if [[ ${skipped} -gt 0 ]]; then
         echo -e "# \033[31mSKIP: ${skipped} / ${tests}\033[39m"
     fi

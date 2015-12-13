@@ -86,9 +86,9 @@ test('Startup VmAgent with VM missing from VMAPI', function _test(t) {
         function _onUpdateVms(vmobjs /* , server_uuid */) {
             var vmadmVms = mocks.Vmadm.peekVms();
 
-            t.equal(Object.keys(vmobjs.vms).length, 1,
+            t.equal(Object.keys(vmobjs).length, 1,
                 'updateServerVms payload has 1 VM');
-            t.notOk(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
+            t.notOk(diff(vmobjs[vmadmVms[0].uuid], vmadmVms[0]),
                 '"PUT /vms" includes missing VM');
 
             resetGlobalState(vmAgent);
@@ -123,10 +123,10 @@ test('Startup VmAgent with VM missing from vmadm', function _test(t) {
             expected.state = 'destroyed';
             expected.zone_state = 'destroyed';
 
-            t.equal(Object.keys(vmobjs.vms).length, 1,
+            t.equal(Object.keys(vmobjs).length, 1,
                 'updateServerVms payload has 1 VM');
             // diff returns undefined on no difference
-            t.notOk(diff(vmobjs.vms[expected.uuid], expected),
+            t.notOk(diff(vmobjs[expected.uuid], expected),
                 '"PUT /vms" trying to destroy VM');
 
             resetGlobalState(vmAgent);
@@ -352,10 +352,10 @@ test('VmAgent retries when VMAPI returning errors', function _test(t) {
 
         t.ok(attempts > resolveAfter, 'attempts (' + attempts + ') should be > '
             + resolveAfter + ' when we see vmapi.updateServerVms()');
-        t.equal(Object.keys(vmobjs.vms).length, 1,
+        t.equal(Object.keys(vmobjs).length, 1,
             'updateServerVms payload has 1 VM');
         // diff returns undefined on no difference
-        t.notOk(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
+        t.notOk(diff(vmobjs[vmadmVms[0].uuid], vmadmVms[0]),
            '"PUT /vms" includes missing VM');
 
         done = true;
@@ -495,10 +495,10 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
     function _onUpdateVms(vmobjs /* , server_uuid */) {
         var vmadmVms = mocks.Vmadm.peekVms();
 
-        t.equal(Object.keys(vmobjs.vms).length, 1,
+        t.equal(Object.keys(vmobjs).length, 1,
             'updateServerVms payload has 1 VM');
         // diff returns undefined on no difference
-        t.notOk(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
+        t.notOk(diff(vmobjs[vmadmVms[0].uuid], vmadmVms[0]),
            '"PUT /vms" includes initial VM');
 
         // wait 11s (should be past 2 of the 5 second polling windows) and then
@@ -579,10 +579,10 @@ test('VmAgent sends deletion events after PUT failures', function _test(t) {
             var vmadmVms = mocks.Vmadm.peekVms();
             var vmapiPutErr;
 
-            t.equal(Object.keys(vmobjs.vms).length, 1,
+            t.equal(Object.keys(vmobjs).length, 1,
                 'updateServerVms payload has 1 VM');
             // diff returns undefined on no difference
-            t.notOk(diff(vmobjs.vms[vmadmVms[0].uuid], vmadmVms[0]),
+            t.notOk(diff(vmobjs[vmadmVms[0].uuid], vmadmVms[0]),
                '"PUT /vms" includes missing VM');
 
             // simulate Moray down
@@ -639,10 +639,10 @@ test('Startup VmAgent with minimal VMs', function _test(t) {
 
     coordinator.on('vmapi.updateServerVms',
         function _onUpdateVms(vmobjs /* , server_uuid */) {
-            t.equal(Object.keys(vmobjs.vms).length, 1,
+            t.equal(Object.keys(vmobjs).length, 1,
                 'updateServerVms payload has 1 VM');
-            Object.keys(vmobjs.vms).forEach(function _checkVm(vm_uuid) {
-                t.notEqual(vmobjs.vms[vm_uuid].uuid, existingVm.uuid,
+            Object.keys(vmobjs).forEach(function _checkVm(vm_uuid) {
+                t.notEqual(vmobjs[vm_uuid].uuid, existingVm.uuid,
                     'update is not the existing VM');
             });
 
@@ -672,3 +672,28 @@ test('Startup VmAgent with minimal VMs', function _test(t) {
 });
 
 // TODO: test with 2000 VMs in vmadm, all retrying because VMAPI's busted
+
+/*
+HTTP/1.1 409 Conflict
+Content-Type: application/json
+Content-Length: 128
+Content-MD5: Mu7FPDs+iwuIuMJD3GMSwQ==
+Date: Fri, 11 Dec 2015 21:21:14 GMT
+Server: VMAPI
+x-request-id: 1bf1b720-a04d-11e5-917c-9f105bfb2cc0
+x-response-time: 3
+x-server-name: 16a7402c-026d-498c-a801-76e25fe82a61
+Connection: keep-alive
+
+{
+  "code": "ValidationFailed",
+  "message": "Invalid Parameters",
+  "errors": [
+    {
+      "field": "uuid",
+      "code": "Invalid",
+      "message": "Invalid UUID"
+    }
+  ]
+}
+*/

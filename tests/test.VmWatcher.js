@@ -15,17 +15,11 @@ var test = require('tape');
 var vmadm = require('vmadm');
 var VmWatcher = require('../lib/vm-watcher');
 
+// For tests we can lower the frequency the periodic watcher polls so we finish
+// in more reasonable time.
+var PERIODIC_INTERVAL = 1000;
 // How frequently to poll the 'events' array when we're waiting for an event.
 var EVENTS_POLL_FREQ = 100; // ms
-
-// TODO:
-// take/delete snapshot
-// add/remove do_not_inventory (destroy/create)
-// reboot
-//
-// create KVM VM
-// modify disks
-// destroy KVM VM
 
 var events = [];
 var existingVms = [];
@@ -87,7 +81,10 @@ test('load existing VMs', function _test(t) {
 
 
 test('starting VmWatcher', function _test(t) {
-    watcher = new VmWatcher({log: mocks.Logger});
+    watcher = new VmWatcher({
+        log: mocks.Logger,
+        periodicInterval: PERIODIC_INTERVAL
+    });
 
     t.ok(watcher, 'created VmWatcher');
 
@@ -252,3 +249,13 @@ test('check SmartOS VM\'s events', function _test(t) {
     t.ok(true, 'saw: ' + evts.join(','));
     t.end();
 });
+
+
+// TODO:
+// take/delete snapshot
+// add/remove do_not_inventory (destroy/create)
+// reboot
+//
+// create KVM VM
+// modify disks
+// destroy KVM VM
