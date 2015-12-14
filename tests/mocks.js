@@ -8,9 +8,11 @@
  * Copyright (c) 2015, Joyent, Inc.
  */
 
+var util = require('util');
+
 var assert = require('assert-plus');
 var EventEmitter = require('events').EventEmitter;
-var util = require('util');
+
 var VMAPI = require('../lib/vmapi-client');
 var VmWatcher = require('../lib/vm-watcher');
 

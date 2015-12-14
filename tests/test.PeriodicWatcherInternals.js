@@ -8,9 +8,11 @@
  * Copyright (c) 2015, Joyent, Inc.
  */
 
-var mocks = require('./mocks');
 var test = require('tape');
+
+var mocks = require('./mocks');
 var PeriodicWatcher = require('../lib/watchers/periodic-watcher');
+
 
 var innards = (new PeriodicWatcher({
     log: mocks.Logger,

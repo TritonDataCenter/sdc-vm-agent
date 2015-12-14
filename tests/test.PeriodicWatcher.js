@@ -8,12 +8,15 @@
  * Copyright (c) 2015, Joyent, Inc.
  */
 
-var common = require('./common');
 var execFile = require('child_process').execFile;
-var mocks = require('./mocks');
+
 var test = require('tape');
 var vmadm = require('vmadm');
+
+var common = require('./common');
+var mocks = require('./mocks');
 var PeriodicWatcher = require('../lib/watchers/periodic-watcher');
+
 
 // How frequently to poll the 'events' array when we're waiting for an event.
 var EVENTS_POLL_FREQ = 100; // ms
@@ -52,14 +55,12 @@ function waitEvent(t, evt, vmUuid, eventIdx) {
     _waitEvent();
 }
 
-
 test('find SmartOS image', function _test(t) {
     common.testFindSmartosImage(t, function _findSmartosCb(latest) {
         smartosImageUUID = latest;
         t.end();
     });
 });
-
 
 test('load existing VMs', function _test(t) {
     var opts = {};
@@ -77,7 +78,6 @@ test('load existing VMs', function _test(t) {
         t.end();
     });
 });
-
 
 test('starting PeriodicWatcher', function _test(t) {
     function _onVmUpdate(vmUuid, updateType /* , updateObj */) {
@@ -103,7 +103,6 @@ test('starting PeriodicWatcher', function _test(t) {
     t.end();
 });
 
-
 test('create VM', function _test(t) {
     var eventIdx = events.length;
     var payload = {
@@ -127,7 +126,6 @@ test('create VM', function _test(t) {
     });
 });
 
-
 test('stop VM', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
@@ -145,7 +143,6 @@ test('stop VM', function _test(t) {
         }
     });
 });
-
 
 test('start VM', function _test(t) {
     var eventIdx = events.length;
@@ -165,7 +162,6 @@ test('start VM', function _test(t) {
     });
 });
 
-
 test('modify quota using ZFS', function _test(t) {
     var eventIdx = events.length;
 
@@ -180,7 +176,6 @@ test('modify quota using ZFS', function _test(t) {
         }
     );
 });
-
 
 test('put metadata using mdata-put', function _test(t) {
     var eventIdx = events.length;
@@ -197,7 +192,6 @@ test('put metadata using mdata-put', function _test(t) {
         }
     );
 });
-
 
 test('create snapshot', function _test(t) {
     var eventIdx = events.length;
@@ -217,7 +211,6 @@ test('create snapshot', function _test(t) {
     });
 });
 
-
 test('delete snapshot', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
@@ -236,7 +229,6 @@ test('delete snapshot', function _test(t) {
     });
 });
 
-
 test('set do_not_inventory', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
@@ -254,7 +246,6 @@ test('set do_not_inventory', function _test(t) {
         }
     });
 });
-
 
 test('unset do_not_inventory', function _test(t) {
     var eventIdx = events.length;
@@ -278,7 +269,6 @@ test('unset do_not_inventory', function _test(t) {
     );
 });
 
-
 test('reboot VM', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
@@ -296,7 +286,6 @@ test('reboot VM', function _test(t) {
     });
 });
 
-
 test('delete VM', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
@@ -313,7 +302,6 @@ test('delete VM', function _test(t) {
         }
     });
 });
-
 
 test('create KVM VM', function _test(t) {
     var eventIdx;
@@ -341,7 +329,6 @@ test('create KVM VM', function _test(t) {
     });
 });
 
-
 test('add KVM VM disk', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
@@ -359,7 +346,6 @@ test('add KVM VM disk', function _test(t) {
         }
     });
 });
-
 
 test('modify KVM VM disk', function _test(t) {
     var eventIdx = events.length;
@@ -382,7 +368,6 @@ test('modify KVM VM disk', function _test(t) {
     });
 });
 
-
 test('remove KVM VM disk', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
@@ -403,7 +388,6 @@ test('remove KVM VM disk', function _test(t) {
     });
 });
 
-
 test('delete KVM VM', function _test(t) {
     var eventIdx = events.length;
     var opts = {};
@@ -421,13 +405,11 @@ test('delete KVM VM', function _test(t) {
     });
 });
 
-
 test('stop PeriodicWatcher', function _test(t) {
     watcher.stop();
     t.ok(true, 'stopped watcher');
     t.end();
 });
-
 
 test('check KVM VM\'s events', function _test(t) {
     var evts = [];
@@ -446,4 +428,3 @@ test('check KVM VM\'s events', function _test(t) {
     t.ok(true, 'saw: ' + evts.join(','));
     t.end();
 });
-

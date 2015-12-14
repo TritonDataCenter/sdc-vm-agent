@@ -129,7 +129,6 @@ var minimalVmapiVm = {
     image_uuid: null
 };
 
-
 module.exports = {
     minimalVmapiVm: minimalVmapiVm,
     smartosPayloads: smartosPayloads

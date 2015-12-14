@@ -8,15 +8,17 @@
  * Copyright (c) 2015, Joyent, Inc.
  */
 
-var common = require('./common');
-var diff = require('deep-diff').diff;
 var execFile = require('child_process').execFile;
+
+var diff = require('deep-diff').diff;
 var mockery = require('mockery');
-var mocks = require('./mocks');
 var test = require('tape');
 var node_uuid = require('node-uuid');
 var vasync = require('vasync');
 var vmadm = require('vmadm');
+
+var common = require('./common');
+var mocks = require('./mocks');
 
 
 // GLOBAL
@@ -52,7 +54,6 @@ function newConfig() {
     return (config);
 }
 
-
 function resetGlobalState(vmAgent) {
     if (vmAgent) {
         vmAgent.stop();
@@ -60,14 +61,12 @@ function resetGlobalState(vmAgent) {
     mocks.resetState();
 }
 
-
 test('find SmartOS image', function _test(t) {
     common.testFindSmartosImage(t, function _findSmartosCb(latest) {
         smartosImageUUID = latest;
         t.end();
     });
 });
-
 
 //
 // TODO: more modifiers:
@@ -131,7 +130,6 @@ function performThenWait(performFn, callback) {
         waitForUpdate(startIdx, params, callback);
     });
 }
-
 
 /*
  * Create an initially empty fake VMAPI. Allow it to fill with the existing VMs

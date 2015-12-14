@@ -8,12 +8,13 @@
  * Copyright (c) 2015, Joyent, Inc.
  */
 
-var data = require('./data');
 var diff = require('deep-diff').diff;
 var mockery = require('mockery');
-var mocks = require('./mocks');
 var test = require('tape');
 var node_uuid = require('node-uuid');
+
+var data = require('./data');
+var mocks = require('./mocks');
 
 
 // GLOBAL
@@ -72,7 +73,6 @@ function resetGlobalState(vmAgent) {
     mocks.resetState();
 }
 
-
 /*
  * Validate that when VmAgent starts up and vmadm lookup returns a VM that
  * "GET /vms?state=active&server_uuid=..." did not, that this missing VM is
@@ -102,7 +102,6 @@ test('Startup VmAgent with VM missing from VMAPI', function _test(t) {
     vmAgent = new VmAgent(config);
     vmAgent.start();
 });
-
 
 /*
  * Validate that when VmAgent starts up and vmadm lookup is missing a VM that
@@ -140,7 +139,6 @@ test('Startup VmAgent with VM missing from vmadm', function _test(t) {
     vmAgent = new VmAgent(config);
     vmAgent.start();
 });
-
 
 /*
  * Start with vmapi + vmadm empty, then create some VMs. Then perform some
@@ -311,7 +309,6 @@ function _test(t) {
     _waitDone();
 });
 
-
 /*
  * When VmAgent starts, VMAPI is unavailable and there's a VM in vmadm that
  * does not exist in VMAPI. After 5 failed attempts (delta should be growing)
@@ -386,7 +383,6 @@ test('VmAgent retries when VMAPI returning errors', function _test(t) {
 
     _waitDone();
 });
-
 
 /*
  * VmAgent starts, there's a single VM in vmadm that gets updated to VMAPI.
@@ -529,7 +525,6 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
     _waitDone();
 });
 
-
 /*
  * VmAgent starts, there's a single VM in vmadm that gets updated to VMAPI.
  * After VMAPI is updated, it crashes and starts returning ECONNREFUSED, the VM
@@ -620,7 +615,6 @@ test('VmAgent sends deletion events after PUT failures', function _test(t) {
 
     _waitDone();
 });
-
 
 /*
  * vmadm has 2 VMs one which exists in VMAPI and one that doesn't. The one that
