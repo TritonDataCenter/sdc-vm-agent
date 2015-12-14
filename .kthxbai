@@ -37,6 +37,8 @@
 **/runtests.in
 **/tools/mk/Makefile.*
 **/bower.json
+**/doc/wg-meetings
+**/.zuul.yml
 
 # deep-diff
 deep-diff/releases
