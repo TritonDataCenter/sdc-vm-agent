@@ -68,16 +68,6 @@ test('find SmartOS image', function _test(t) {
     });
 });
 
-//
-// TODO: more modifiers:
-//   - stop/start/reboot
-//   - snapshots
-//   - add a nic
-//
-// TODO?: KVM?
-//   - add kvm disks
-//
-
 function createCmpObj(params, updateObj) {
     var cmpObj = {};
     var keyIdx;
@@ -86,7 +76,17 @@ function createCmpObj(params, updateObj) {
     keys = Object.keys(params);
     for (keyIdx = 0; keyIdx < keys.length; keyIdx++) {
         if (updateObj.hasOwnProperty(keys[keyIdx])) {
-            cmpObj[keys[keyIdx]] = updateObj[keys[keyIdx]];
+            if (keys[keyIdx] === 'snapshots') {
+                // just keep 'name' for snapshot since we don't really care to
+                // match created_at
+                cmpObj[keys[keyIdx]] = updateObj[keys[keyIdx]].map(
+                    function _mapSnapshot(snap) {
+                        return ({name: snap.name});
+                    }
+                );
+            } else {
+                cmpObj[keys[keyIdx]] = updateObj[keys[keyIdx]];
+            }
         }
     }
 
@@ -96,6 +96,7 @@ function createCmpObj(params, updateObj) {
 function waitForUpdate(startIdx, params, cb) {
     var cmpObj;
     var diffObj;
+    var filteredDiff;
     var foundMatch = false;
     var idx;
 
@@ -104,7 +105,21 @@ function waitForUpdate(startIdx, params, cb) {
         // so that a comparison is only on those fields.
         cmpObj = createCmpObj(params, updates[idx]);
         diffObj = diff(params, cmpObj);
-        if (!diffObj) {
+        if (diffObj) {
+            filteredDiff = diffObj.filter(function _removeNotDiffs(_diff) {
+                if (typeof (_diff.lhs) === 'string' && _diff.rhs
+                    && _diff.lhs[0] === '!'
+                    && _diff.lhs.slice(1) !== _diff.rhs.toString()) {
+                    // This matches the negation
+                    return (false);
+                }
+                return (true);
+            });
+
+            if (filteredDiff.length === 0) {
+                foundMatch = true;
+            }
+        } else {
             foundMatch = true;
         }
     }
@@ -200,6 +215,91 @@ test('Real vmadm, fake VMAPI', function _test(t) {
             var newAlias = payload.alias + '-HACKED';
 
             _setVmadmProperty(vmUuid, 'alias', newAlias, cb);
+        }, function _stopVm(vmUuid, cb) {
+            var opts = {
+                log: config.log,
+                uuid: payload.uuid
+            };
+
+            vmadm.stop(opts, function _vmadmStopCb(err) {
+                t.ifError(err, 'stop VM');
+                cb(err, {state: 'stopped', zone_state: 'installed'});
+            });
+        }, function _startVm(vmUuid, cb) {
+            var opts = {
+                log: config.log,
+                uuid: payload.uuid
+            };
+
+            vmadm.start(opts, function _vmadmStartCb(err) {
+                t.ifError(err, 'start VM');
+                cb(err, {state: 'running', zone_state: 'running'});
+            });
+        }, function _rebootVm(vmUuid, cb) {
+            var opts = {
+                log: config.log,
+                uuid: payload.uuid
+            };
+
+            vmadm.reboot(opts, function _vmadmRebootCb(err) {
+                var lastIdx = updates.length - 1;
+                var prevPid = updates[lastIdx].pid;
+                var prevBootTimestamp = updates[lastIdx].boot_timestamp;
+
+                t.ifError(err, 'reboot VM');
+
+                cb(err, {
+                    boot_timestamp: '!' + prevBootTimestamp,
+                    pid: '!' + prevPid
+                });
+            });
+        }, function _snapshotVm(vmUuid, cb) {
+            var opts = {
+                log: config.log,
+                snapshot_name: 'snappy',
+                uuid: payload.uuid
+            };
+
+            vmadm.create_snapshot(opts, function _vmadmCreateSnapCb(err) {
+                t.ifError(err, 'created snapshot for VM ' + smartosVmUUID);
+
+                cb(err, {
+                    snapshots: [{name: 'snappy'}]
+                });
+            });
+        }, function _rollbackVm(vmUuid, cb) {
+            var lastIdx = updates.length - 1;
+            var opts = {
+                log: config.log,
+                snapshot_name: 'snappy',
+                uuid: payload.uuid
+            };
+            var prevPid = updates[lastIdx].pid;
+            var prevBootTimestamp = updates[lastIdx].boot_timestamp;
+
+            vmadm.rollback_snapshot(opts, function _vmadmRollbackSnapCb(err) {
+                t.ifError(err, 'rollback snapshot for VM ' + smartosVmUUID);
+
+                cb(err, {
+                    boot_timestamp: '!' + prevBootTimestamp,
+                    pid: '!' + prevPid,
+                    snapshots: [{name: 'snappy'}]
+                });
+            });
+        }, function _deleteSnapshot(vmUuid, cb) {
+            var opts = {
+                log: config.log,
+                snapshot_name: 'snappy',
+                uuid: payload.uuid
+            };
+
+            vmadm.delete_snapshot(opts, function _vmadmDeleteSnapCb(err) {
+                t.ifError(err, 'delete snapshot for VM ' + smartosVmUUID);
+
+                cb(err, {
+                    snapshots: []
+                });
+            });
         }
     ];
 

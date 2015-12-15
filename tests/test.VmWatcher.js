@@ -241,12 +241,3 @@ test('check SmartOS VM\'s events', function _test(t) {
     t.ok(true, 'saw: ' + evts.join(','));
     t.end();
 });
-
-// TODO:
-// take/delete snapshot
-// add/remove do_not_inventory (destroy/create)
-// reboot
-//
-// create KVM VM
-// modify disks
-// destroy KVM VM
