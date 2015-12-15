@@ -216,11 +216,9 @@ function _test(t) {
     // (until we've created enoug VMs) we'll just add a new one each time. Then
     // we'll perform some modifications to make sure those show up as updates.
     coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj) {
-        var found;
-        var mod;
         var vmadmVms = mocks.Vmadm.peekVms();
 
-        if (mode === 'creating') {
+        function _doCreate() {
             t.equal(vmobj.uuid, vmadmVms[vmadmVms.length - 1].uuid,
                 'received PUT /vms/' + vmobj.uuid + ' (' + created + ')');
             created++;
@@ -233,11 +231,10 @@ function _test(t) {
             // 3. We've created create_vms VMs, now perform modifications
             mode = 'modifying';
             _modVm();
-            return;
         }
 
-        if (mode === 'modifying') {
-            mod = mods[0];
+        function _doModify() {
+            var mod = mods[0];
 
             t.equal(vmobj.uuid, vmadmVms[mod.vm].uuid,
                 'received PUT /vms/' + vmobj.uuid);
@@ -260,11 +257,11 @@ function _test(t) {
             // 4. We've performed all modifications, delete the VMs
             mode = 'deleting';
             _delVm();
-            return;
         }
 
-        if (mode === 'deleting') {
-            found = false;
+        function _doDelete() {
+            var found = false;
+
             vmadmVms.forEach(function _findVm(vm) {
                 if (vm.uuid === vmobj.uuid) {
                     found = true;
@@ -283,6 +280,21 @@ function _test(t) {
                 t.ok(true, 'All VMs are gone');
                 done = true;
             }
+        }
+
+        switch (mode) {
+            case 'creating':
+                _doCreate();
+                break;
+            case 'modifying':
+                _doModify();
+                break;
+            case 'deleting':
+                _doDelete();
+                break;
+            default:
+                t.fail('unexpected mode: ' + mode);
+                break;
         }
     });
 
@@ -394,7 +406,8 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
     var attempts = 0;
     var config = newConfig();
     var done = false;
-    var modifications = 0;
+    var mods;
+    var modIdx = 0;
     var prevDelta = 0;
     var prevTimestamp = 0;
     var vmAgent;
@@ -405,29 +418,20 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
         modFn(vmadmVms[0]);
         // after caller modifies VM, notify VmWatcher
         vmAgent.watcher.emit('VmModified', vmadmVms[0].uuid);
-        modifications++;
+        modIdx++;
     }
 
-    coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj, err) {
-        var delta;
-        var fixAfter = 7;
-        var vmadmVms = mocks.Vmadm.peekVms();
-        var vmapiPutErr;
-        var waitFinalAttempt = 20000; // ms
-
-        attempts++;
-
-        t.equal(vmobj.uuid, vmadmVms[0].uuid, 'saw PUT /vms/' + vmobj.uuid
-            + (err ? ' -- ' + err.code : ''));
-        if (modifications === 1) {
+    mods = [
+        function _modVmStopped() {
             _modVm(function _modVmStoppedCb(vm) {
                 vm.state = 'stopped';
                 vm.zone_state = 'installed';
                 t.ok(true, 'modified VM ' + vm.uuid
                     + ' (state,zone_state) = "stopped,installed"');
             });
-            return;
-        } else if (modifications === 2) {
+        }, function _modVmRunning() {
+            var vmapiPutErr;
+
             // now we'll simulate connection refused
             vmapiPutErr = new Error('Connection Refused');
             vmapiPutErr.code = 'ECONNREFUSED';
@@ -440,8 +444,7 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
                 t.ok(true, 'modified VM ' + vm.uuid
                     + ' (state,zone_state) = "running"');
             });
-            return;
-        } else if (modifications === 3) {
+        }, function _modVmMem() {
             _modVm(function _modVmMemCb(vm) {
                 vm.max_physical_memory *= 2;
                 vm.max_swap *= 2;
@@ -449,6 +452,23 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
                 t.ok(true, 'modified VM ' + vm.uuid
                     + ' (max_{swap,phys,locked} += 2)');
             });
+        }
+    ];
+
+    coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj, err) {
+        var delta;
+        var fixAfter = 8; // after this many attempts we'll "fix" the problem
+        var fixedAfter = fixAfter + 1;
+        var vmadmVms = mocks.Vmadm.peekVms();
+        var waitFinalAttempt = 10000; // ms
+
+        attempts++;
+
+        t.equal(vmobj.uuid, vmadmVms[0].uuid, 'saw PUT /vms/' + vmobj.uuid
+            + (err ? ' -- ' + err.code : ''));
+
+        if (mods[modIdx - 1]) {
+            mods[modIdx - 1]();
             return;
         }
 
@@ -465,23 +485,23 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
         // and the next update should include all our changes. We should get
         // exactly 1 more update.
 
-        if (attempts > fixAfter) {
+        if (attempts >= fixAfter) {
             if (mocks.Vmapi.getPutError()) {
-                // at 5 attempts, the problem is "resolved"
+                // after fixAfter attempts, the problem is "resolved"
                 mocks.Vmapi.setPutError(null);
                 return;
             }
-            t.equal(attempts, fixAfter + 2, 'saw actual update on only attempt '
-                + fixAfter + 2);
+            t.equal(attempts, fixedAfter, 'saw actual update on only attempt '
+                + fixedAfter);
             // diff returns undefined on no difference
             t.notOk(diff(vmadmVms[0], vmobj),
                 'all VM changes reflected in final PUT');
 
-            // last attempt should have had delay of ~8000ms, so waiting 20k
-            // here in case there's another attempt.
+            // last attempt should take some time for the period to roll past,
+            // we wait a bit here in case there's another attempt.
             setTimeout(function _checkAttempts() {
-                t.equal(attempts, fixAfter + 2, 'no more attempts past '
-                    + fixAfter + 2);
+                t.equal(attempts, fixedAfter, 'no more attempts past '
+                    + fixedAfter);
                 done = true;
             }, waitFinalAttempt);
         }
@@ -497,13 +517,10 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
         t.notOk(diff(vmobjs[vmadmVms[0].uuid], vmadmVms[0]),
            '"PUT /vms" includes initial VM');
 
-        // wait 11s (should be past 2 of the 5 second polling windows) and then
         // make our first modification to the VM.
-        setTimeout(function _modifyLastModified() {
-            _modVm(function _modLastModifiedCb(vm) {
-                vm.last_modified = (new Date()).toISOString();
-            });
-        }, 11000);
+        _modVm(function _modLastModifiedCb(vm) {
+            vm.last_modified = (new Date()).toISOString();
+        });
     });
 
     mocks.Vmadm.addVm(createVm(data.smartosPayloads[0]));
@@ -539,6 +556,7 @@ test('VmAgent sends deletion events after PUT failures', function _test(t) {
     var config = newConfig();
     var deletedVmUpdate;
     var done = false;
+    var resolveAttempt = 3;
     var vmAgent;
 
     // 2. After we've deleted the VM, we should see multiple attempts to PUT the
@@ -551,16 +569,15 @@ test('VmAgent sends deletion events after PUT failures', function _test(t) {
             + 'only change [zone_]state=destroyed (' + attempts + ')'
             + (err ? ' -- ' + err.name : ''));
 
-        if (attempts === 3) {
-            // at 3 attempts, the problem is "resolved"
+        if (attempts === resolveAttempt) {
+            // at resolveAttempt attempts, the problem is "resolved"
             mocks.Vmapi.setPutError(null);
-        } else if (attempts === 4) {
+        } else if (attempts === (resolveAttempt + 1)) {
             // should be the last one!
-            setTimeout(function _checkAttempts() {
-                t.equal(attempts, 4, 'expected 4 total attempts');
-                done = true;
-            }, 10000);
-        } else if (attempts > 4) {
+            t.equal(attempts, (resolveAttempt + 1), 'expected '
+                + (resolveAttempt + 1) + ' total attempts');
+            done = true;
+        } else if (attempts > (resolveAttempt + 1)) {
             // uh-oh!
             t.fail('should not have seen put ' + attempts + ' for deleted VM');
         }

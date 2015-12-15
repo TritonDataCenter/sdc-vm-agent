@@ -81,7 +81,6 @@ function vmapifyVm(vmobj) {
     return (newObj);
 }
 
-
 function vmadmifyVm(vmobj) {
     var newObj = JSON.parse(JSON.stringify(vmobj));
 
@@ -119,7 +118,6 @@ coordinator = new Coordinator();
 function fakeVmadm() {
 }
 
-
 fakeVmadm.lookup = function fakeVmadmLookup(search, opts, callback) {
     process.nextTick(function _delayedLookupEmit() {
         coordinator.emit('vmadm.lookup', search, opts);
@@ -130,7 +128,6 @@ fakeVmadm.lookup = function fakeVmadmLookup(search, opts, callback) {
     }
     callback(null, vmadmVms);
 };
-
 
 fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
     var err;
@@ -162,28 +159,23 @@ fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
     callback(err, vmobj);
 };
 
-
 // These last functions don't exist in the real vmadm client, but we use them to
 // manage the set of expected VMs / errors for our fake VMAPI.
 fakeVmadm.addVm = function addVm(vmobj) {
     vmadmVms.push(vmadmifyVm(vmobj));
 };
 
-
 fakeVmadm.clearVms = function clearVms() {
     vmadmVms = [];
 };
-
 
 fakeVmadm.peekVms = function peekVms() {
     return (vmadmVms);
 };
 
-
 fakeVmadm.setError = function setError(err) {
     vmadmErr = err;
 };
-
 
 fakeVmadm.getError = function getError() {
     return (vmadmErr);
@@ -200,7 +192,6 @@ fakeVmadm.getError = function getError() {
 function fakeVmapi() {
 }
 
-
 fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
     process.nextTick(function _delayedGetEmit() {
         coordinator.emit('vmapi.getVms', server_uuid);
@@ -211,7 +202,6 @@ fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
     }
     callback(null, vmapiVms);
 };
-
 
 fakeVmapi.prototype.updateServerVms = // eslint-disable-line
 function updateServerVms(server_uuid, vmobjs, callback) {
@@ -225,7 +215,6 @@ function updateServerVms(server_uuid, vmobjs, callback) {
     callback();
 };
 
-
 fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
     process.nextTick(function _delayedUpdateVmEmit() {
         coordinator.emit('vmapi.updateVm', vmobj,
@@ -238,43 +227,35 @@ fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
     callback();
 };
 
-
 // These last functions don't exist in the real vmapi client, but we use them to
 // manage the set of expected VMs / errors for our fake VMAPI.
 fakeVmapi.addVm = function addVm(vmobj) {
     vmapiVms.push(vmapifyVm(vmobj));
 };
 
-
 fakeVmapi.clearVms = function clearVms() {
     vmapiVms = [];
 };
-
 
 fakeVmapi.peekVms = function peekVms() {
     return (vmapiVms);
 };
 
-
 fakeVmapi.setGetError = function setGetError(err) {
     vmapiGetErr = err;
 };
-
 
 fakeVmapi.getGetError = function getGetError() {
     return (vmapiGetErr);
 };
 
-
 fakeVmapi.setPutError = function setPutError(err) {
     vmapiPutErr = err;
 };
 
-
 fakeVmapi.getPutError = function getPutError() {
     return (vmapiPutErr);
 };
-
 
 fakeVmapi.VMAPI_DEFAULT_FIELDS = VMAPI.VMAPI_DEFAULT_FIELDS;
 fakeVmapi.VMAPI_UNSET_FIELDS = VMAPI.VMAPI_UNSET_FIELDS;
@@ -290,16 +271,13 @@ function fakeVmWatcher() {
 }
 util.inherits(fakeVmWatcher, EventEmitter);
 
-
 fakeVmWatcher.prototype.start = function start() {
     // console.error('vmwatcher.start');
 };
 
-
 fakeVmWatcher.prototype.stop = function stop() {
     // console.error('vmwatcher.start');
 };
-
 
 fakeVmWatcher.WATCHED_FIELDS = VmWatcher.WATCHED_FIELDS;
 
@@ -313,7 +291,6 @@ function resetState() {
     vmapiPutErr = null;
     vmapiVms = [];
 }
-
 
 module.exports = {
     coordinator: coordinator,
