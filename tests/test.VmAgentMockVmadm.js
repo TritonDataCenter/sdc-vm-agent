@@ -96,7 +96,7 @@ test('Startup VmAgent with VM missing from VMAPI', function _test(t) {
         }
     );
 
-    mocks.Vmadm.addVm(createVm(data.smartosPayloads[0]));
+    mocks.Vmadm.putVm(createVm(data.smartosPayloads[0]));
 
     t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
     vmAgent = new VmAgent(config);
@@ -133,7 +133,7 @@ test('Startup VmAgent with VM missing from vmadm', function _test(t) {
         }
     );
 
-    mocks.Vmapi.addVm(createVm(data.smartosPayloads[0]));
+    mocks.Vmapi.putVm(createVm(data.smartosPayloads[0]));
 
     t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
     vmAgent = new VmAgent(config);
@@ -155,22 +155,21 @@ function _test(t) {
     var mode = 'creating';
     // These are processed from top to bottom. We should have <create_vms>
     // number of VMs on which to operate.
-    //
-    // TODO: test more modifications
-    //
     var mods = [
         {vm: 0, change: 'set', field: 'quota', value: 1000},
         {vm: 1, change: 'set', field: 'cpu_cap', value: 800},
         {vm: 1, change: 'del', field: 'cpu_cap'},
         {vm: 0, change: 'set', field: 'customer_metadata',
-            value: {hello: 'world'}}
+            value: {hello: 'world'}},
+        {vm: 2, change: 'set', field: 'zfs_root_compression',
+            value: 'lz4'}
     ];
     var vmAgent;
 
-    function _addVm() {
+    function _putVm() {
         var newVm = createVm(data.smartosPayloads[0]);
 
-        mocks.Vmadm.addVm(newVm);
+        mocks.Vmadm.putVm(newVm);
         t.ok(newVm, 'created VM ' + (newVm ? newVm.uuid : 'undefined'));
         vmAgent.watcher.emit('VmCreated', newVm.uuid);
     }
@@ -204,7 +203,7 @@ function _test(t) {
         t.ok(!opts.fields, 'vmadm.lookup should not have "fields"');
         if (!opts.fields) {
             // initial lookup, ready to pretend some changes
-            _addVm();
+            _putVm();
             return;
         }
 
@@ -224,7 +223,7 @@ function _test(t) {
             created++;
 
             if (created < create_vms) {
-                _addVm();
+                _putVm();
                 return;
             }
 
@@ -370,7 +369,7 @@ test('VmAgent retries when VMAPI returning errors', function _test(t) {
         done = true;
     });
 
-    mocks.Vmadm.addVm(createVm(data.smartosPayloads[0]));
+    mocks.Vmadm.putVm(createVm(data.smartosPayloads[0]));
 
     // simulate connection refused
     vmapiGetErr = new Error('Connection Refused');
@@ -523,7 +522,7 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
         });
     });
 
-    mocks.Vmadm.addVm(createVm(data.smartosPayloads[0]));
+    mocks.Vmadm.putVm(createVm(data.smartosPayloads[0]));
 
     t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
     vmAgent = new VmAgent(config);
@@ -614,7 +613,7 @@ test('VmAgent sends deletion events after PUT failures', function _test(t) {
         }
     );
 
-    mocks.Vmadm.addVm(createVm(data.smartosPayloads[0]));
+    mocks.Vmadm.putVm(createVm(data.smartosPayloads[0]));
 
     t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
     vmAgent = new VmAgent(config);
@@ -639,7 +638,7 @@ test('VmAgent sends deletion events after PUT failures', function _test(t) {
  * initial update that includes only the missing one.
  *
  * This ensures that the additional fields VMAPI adds to the VM (which here is
- * done through mocks.Vmapi.addVm()) do not interfere with the ability to notice
+ * done through mocks.Vmapi.putVm()) do not interfere with the ability to notice
  * that the VM is already in VMAPI.
  */
 test('Startup VmAgent with minimal VMs', function _test(t) {
@@ -664,47 +663,20 @@ test('Startup VmAgent with minimal VMs', function _test(t) {
 
     // This VM is not in VMAPI, so should be in the update
     missingVm = createVm(data.smartosPayloads[0]);
-    mocks.Vmadm.addVm(missingVm);
+    mocks.Vmadm.putVm(missingVm);
 
     // This one *is* in VMAPI and vmadm, so we shouldn't update it, even though
-    // Vmapi.addVm() adds the default fields.
+    // Vmapi.putVm() adds the default fields.
     existingVm = {
         brand: 'joyent-minimal',
         state: 'stopped',
         uuid: data.minimalVmapiVm.uuid,
         zone_state: 'installed'
     };
-    mocks.Vmadm.addVm(existingVm);
-    mocks.Vmapi.addVm(existingVm);
+    mocks.Vmadm.putVm(existingVm);
+    mocks.Vmapi.putVm(existingVm);
 
     t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
     vmAgent = new VmAgent(config);
     vmAgent.start();
 });
-
-// TODO: test with 2000 VMs in vmadm, all retrying because VMAPI's busted
-
-/*
-HTTP/1.1 409 Conflict
-Content-Type: application/json
-Content-Length: 128
-Content-MD5: Mu7FPDs+iwuIuMJD3GMSwQ==
-Date: Fri, 11 Dec 2015 21:21:14 GMT
-Server: VMAPI
-x-request-id: 1bf1b720-a04d-11e5-917c-9f105bfb2cc0
-x-response-time: 3
-x-server-name: 16a7402c-026d-498c-a801-76e25fe82a61
-Connection: keep-alive
-
-{
-  "code": "ValidationFailed",
-  "message": "Invalid Parameters",
-  "errors": [
-    {
-      "field": "uuid",
-      "code": "Invalid",
-      "message": "Invalid UUID"
-    }
-  ]
-}
-*/

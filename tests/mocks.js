@@ -31,10 +31,18 @@ var Logger = {
     warn: function _warn() {
     },
     error: function _error(err) {
-        if (err.stderrLines && err.stderrLines[err.stderrLines.length - 1]
-            .match(/^Requested unique lookup but found 0 results./)) {
-            // ignore non-existent errors
-            return;
+        var stderrLines = err.stderrLines;
+
+        if (stderrLines) {
+            if (stderrLines[stderrLines.length - 1]
+                .match(/^Requested unique lookup but found 0 results./)) {
+                // ignore non-existent errors
+                return;
+            } else if (stderrLines[stderrLines.length - 1]
+                .match(/^ENOENT, open.*\.xml/)) {
+                // ignore non-existent errors
+                return;
+            }
         }
         console.log(err); // eslint-disable-line
     }
@@ -44,6 +52,7 @@ var vmadmErr = null;
 var vmapiVms = [];
 var vmapiGetErr = null;
 var vmapiPutErr = null;
+var vmapiErrVms = {};
 
 
 /*
@@ -161,7 +170,17 @@ fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
 
 // These last functions don't exist in the real vmadm client, but we use them to
 // manage the set of expected VMs / errors for our fake VMAPI.
-fakeVmadm.addVm = function addVm(vmobj) {
+fakeVmadm.putVm = function putVm(vmobj) {
+    var vmIdx;
+
+    for (vmIdx = 0; vmIdx < vmadmVms.length; vmIdx++) {
+        if (vmadmVms[vmIdx].uuid === vmobj.uuid) {
+            // If the VM is already here, we just replace the existing object
+            vmadmVms[vmIdx] = vmadmifyVm(vmobj);
+            return;
+        }
+    }
+
     vmadmVms.push(vmadmifyVm(vmobj));
 };
 
@@ -216,20 +235,35 @@ function updateServerVms(server_uuid, vmobjs, callback) {
 };
 
 fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
+    var err;
+
+    if (vmapiPutErr) {
+        err = vmapiPutErr;
+    } else if (vmapiErrVms[vmobj.uuid]) {
+        err = vmapiErrVms[vmobj.uuid];
+    }
+
     process.nextTick(function _delayedUpdateVmEmit() {
         coordinator.emit('vmapi.updateVm', vmobj,
-            (vmapiPutErr ? vmapiPutErr : null));
+            (err ? err : null));
     });
-    if (vmapiPutErr) {
-        callback(vmapiPutErr);
-        return;
-    }
-    callback();
+
+    callback(err);
 };
 
 // These last functions don't exist in the real vmapi client, but we use them to
 // manage the set of expected VMs / errors for our fake VMAPI.
-fakeVmapi.addVm = function addVm(vmobj) {
+fakeVmapi.putVm = function putVm(vmobj) {
+    var vmIdx;
+
+    for (vmIdx = 0; vmIdx < vmapiVms.length; vmIdx++) {
+        if (vmapiVms[vmIdx].uuid === vmobj.uuid) {
+            // If the VM is already here, we just replace the existing object
+            vmapiVms[vmIdx] = vmapifyVm(vmobj);
+            return;
+        }
+    }
+
     vmapiVms.push(vmapifyVm(vmobj));
 };
 
@@ -251,6 +285,14 @@ fakeVmapi.getGetError = function getGetError() {
 
 fakeVmapi.setPutError = function setPutError(err) {
     vmapiPutErr = err;
+};
+
+fakeVmapi.setVmError = function setVmError(vmUuid, err) {
+    if (!err) {
+        delete vmapiErrVms[vmUuid];
+        return;
+    }
+    vmapiErrVms[vmUuid] = err;
 };
 
 fakeVmapi.getPutError = function getPutError() {

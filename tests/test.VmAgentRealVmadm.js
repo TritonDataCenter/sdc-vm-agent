@@ -59,6 +59,7 @@ function resetGlobalState(vmAgent) {
         vmAgent.stop();
     }
     mocks.resetState();
+    updates = [];
 }
 
 test('find SmartOS image', function _test(t) {
@@ -312,9 +313,9 @@ test('Real vmadm, fake VMAPI', function _test(t) {
                 t.ok(true, 'saw PUT /vms: (' + Object.keys(vmobjs).length
                     + ')');
 
-                Object.keys(vmobjs).forEach(function _addVmToVmapi(vm) {
+                Object.keys(vmobjs).forEach(function _putVmToVmapi(vm) {
                     // ignore updates from VMs that existed when we started
-                    mocks.Vmapi.addVm(vmobjs[vm]);
+                    mocks.Vmapi.putVm(vmobjs[vm]);
                 });
 
                 cb();
@@ -359,7 +360,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
             //  With all modifications complete, we now delete the VM which
             //  should result in one more updateVm with 'destroyed'.
 
-            performThenWait(function _performCreate(next) {
+            performThenWait(function _performDelete(next) {
                 vmadm.delete({log: config.log, uuid: smartosVmUUID},
                     function _vmadmDeleteCb(err) {
                         t.ifError(err, 'delete VM: '
@@ -383,6 +384,219 @@ test('Real vmadm, fake VMAPI', function _test(t) {
         if (vmobj.uuid !== smartosVmUUID) {
             // ignore changes that are from other VMs on this system
             return;
+        }
+        updates.push(vmobj);
+    });
+
+    coordinator.on('vmadm.lookup', function _onVmadmLookup() {
+        t.fail('should not have seen vmadm.lookup, should have real vmadm');
+    });
+
+    t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
+    vmAgent = new VmAgent(config);
+    vmAgent.start();
+});
+
+/*
+ * Test w/ VMAPI returning 409, but only for *1* VM, all others should be
+ * updating successfully. Ensures that when 1 VM is broken and can't update to
+ * VMAPI, other changes still go through.
+ */
+
+test('Real vmadm, fake VMAPI: 1 invalid VM', function _test(t) {
+    var brokenVmUuid;
+    var config = newConfig();
+    var createUnbrokenVms = 5;
+    var payload = {
+        alias: 'vm-agent_testvm',
+        brand: 'joyent-minimal',
+        image_uuid: smartosImageUUID
+    };
+    var vmAgent;
+    var vms = [];
+    var waitForUpdatesAfterFixing = 95000; // max delay is 30s, so catch 3+
+
+    vasync.pipeline({arg: {}, funcs: [
+        function _waitInitialUpdateVms(arg, cb) {
+            // Wait for VmAgent init and it'll send the initial PUT /vms, these
+            // are real VMs on the node because we're not faking vmadm.
+            coordinator.once('vmapi.updateServerVms',
+            function _onUpdateVms(vmobjs /* , server_uuid */) {
+                t.ok(true, 'saw PUT /vms: (' + Object.keys(vmobjs).length
+                    + ')');
+
+                Object.keys(vmobjs).forEach(function _putVmToVmapi(vm) {
+                    // ignore updates from VMs that existed when we started
+                    mocks.Vmapi.putVm(vmobjs[vm]);
+                });
+
+                cb();
+            });
+        }, function _createBrokenVm(arg, cb) {
+            // Create a VM then wait for the PUT /vm that includes it (which
+            // should fail)
+            var thisPayload = JSON.parse(JSON.stringify(payload));
+            var vmapiErr;
+
+            thisPayload.uuid = node_uuid.v4();
+            thisPayload.alias = payload.alias + '-' + vms.length;
+            thisPayload.log = config.log;
+            brokenVmUuid = thisPayload.uuid;
+
+            // simulate 409 ValidationFailed
+            vmapiErr = new Error('Invalid Parameters');
+            vmapiErr.code = 'ValidationFailed';
+            mocks.Vmapi.setVmError(brokenVmUuid, vmapiErr);
+
+            // this will wait for the first attempt on this VM
+            performThenWait(function _performCreate(next) {
+                vmadm.create(thisPayload, function _vmadmCreateCb(err, info) {
+                    t.ifError(err, 'create broken VM');
+                    if (!err && info) {
+                        t.ok(info.uuid, 'new broken VM has uuid: ' + info.uuid);
+                    }
+                    vms.push(info.uuid);
+                    next(err, {
+                        alias: thisPayload.alias,
+                        brand: thisPayload.brand,
+                        uuid: thisPayload.uuid
+                    });
+                });
+            }, cb);
+        }, function _createOtherVms(arg, cb) {
+            var uuids = [];
+
+            function _createOneVm(uuid, _createOneCb) {
+                var thisPayload = JSON.parse(JSON.stringify(payload));
+
+                thisPayload.uuid = uuid;
+                thisPayload.alias = payload.alias + '-' + vms.length;
+                thisPayload.log = config.log;
+
+                performThenWait(function _performCreate(next) {
+                    vmadm.create(thisPayload,
+                        function _vmadmCreateCb(err, info) {
+                            t.ifError(err, 'create VM');
+                            if (!err && info) {
+                                t.ok(info.uuid, 'new VM has uuid: '
+                                    + info.uuid);
+                            }
+                            vms.push(info.uuid);
+                            next(err, {
+                                alias: thisPayload.alias,
+                                brand: thisPayload.brand,
+                                uuid: thisPayload.uuid
+                            });
+                        }
+                    );
+                }, _createOneCb);
+            }
+
+            while (uuids.length < createUnbrokenVms) {
+                uuids.push(node_uuid.v4());
+            }
+
+            // create those VMs
+            vasync.forEachPipeline({inputs: uuids, func: _createOneVm}, cb);
+        }, function _checkVmapiForBrokenVm(arg, cb) {
+            var foundBroken = 0;
+            var foundNonBroken = 0;
+            var vmapiVms = mocks.Vmapi.peekVms();
+
+            vmapiVms.forEach(function _checkVm(vm) {
+                if (vm.uuid === brokenVmUuid) {
+                    foundBroken++;
+                } else if (vms.indexOf(vm.uuid) !== -1) {
+                    foundNonBroken++;
+                }
+            });
+
+            t.equal(foundBroken, 0, 'broken VM should not be in VMAPI');
+            t.equal(foundNonBroken, createUnbrokenVms,
+                'all non-broken VMs should be in VMAPI');
+
+            cb();
+        }, function _checkBrokenRetrying(arg, cb) {
+            var updateIdx = updates.length;
+
+            setTimeout(function _afterWaitingForUpdates() {
+                var idx;
+                var newBrokenUpdates = 0;
+                var oldBrokenUpdates = 0;
+
+                for (idx = 0; idx < updates.length; idx++) {
+                    if (idx < updateIdx && updates[idx].uuid === brokenVmUuid) {
+                        // updates for this VM, from before our delay
+                        oldBrokenUpdates++;
+                    } else if (updates[idx].uuid === brokenVmUuid) {
+                        // updates for this VM, after our delay
+                        newBrokenUpdates++;
+                    }
+                }
+
+                t.ok(newBrokenUpdates > 0, 'saw ' + newBrokenUpdates
+                    + ' update attempts for broken VM (was still trying)');
+                t.ok(true, 'total updates for VM: ' + newBrokenUpdates
+                    + oldBrokenUpdates);
+                cb();
+            }, waitForUpdatesAfterFixing);
+        }, function _clearProblem(arg, cb) {
+            // Tell fake VMAPI that this VM is no longer a problem, then wait
+            // for it to get an update and have this VM.
+            performThenWait(function _performClearProblem(next) {
+                mocks.Vmapi.setVmError(brokenVmUuid, null);
+                next(null, {
+                    uuid: brokenVmUuid
+                });
+            }, function _problemCleared(err) {
+                var found = false;
+                var vmapiVms = mocks.Vmapi.peekVms();
+
+                t.ifError(err, 'cleared problem for broken VM');
+
+                // now: make sure that it exists in VMAPI
+                vmapiVms.forEach(function _checkEachVm(vm) {
+                    if (vm.uuid === brokenVmUuid) {
+                        found = true;
+                    }
+                });
+
+                t.ok(found, 'found previously broken VM in VMAPI after problem'
+                    + ' was cleared');
+                cb();
+            });
+        }, function _destroyVms(arg, cb) {
+            //  With all modifications complete, we now delete the VM which
+            //  should result in one more updateVm with 'destroyed'.
+
+            function _destroyOneVm(uuid, _destroyOneCb) {
+                performThenWait(function _performDelete(next) {
+                    vmadm.delete({log: config.log, uuid: uuid},
+                        function _vmadmDeleteCb(err) {
+                            t.ifError(err, 'delete VM ' + uuid + ': '
+                                + (err ? err.message : 'success'));
+                            next(err, {
+                                uuid: uuid,
+                                state: 'destroyed',
+                                zone_state: 'destroyed'
+                            });
+                        }
+                    );
+                }, _destroyOneCb);
+            }
+
+            // destroy them all
+            vasync.forEachPipeline({inputs: vms, func: _destroyOneVm}, cb);
+        }
+    ]}, function _pipelineComplete(err) {
+        t.ifError(err, 'pipeline complete');
+        resetGlobalState(vmAgent); // so it's clean for the next test
+        t.end();
+    });
+
+    coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj, err) {
+        if (!err) {
+            mocks.Vmapi.putVm(vmobj);
         }
         updates.push(vmobj);
     });
