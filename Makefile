@@ -118,9 +118,6 @@ release: all deps docs $(SMF_MANIFESTS)
 	    >$(TOP)/$(RELEASE_MANIFEST)
 	@rm -rf $(RELSTAGEDIR)
 
-# XXX TODO: remove node_modules/eslint
-#           add kthxbai
-
 .PHONY: publish
 publish: release
 	@if [[ -z "$(BITS_DIR)" ]]; then \
