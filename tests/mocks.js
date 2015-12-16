@@ -36,13 +36,16 @@ var Logger = {
         if (stderrLines) {
             if (stderrLines[stderrLines.length - 1]
                 .match(/^Requested unique lookup but found 0 results./)) {
-                // ignore non-existent errors
+                // VM doesn't exist, not really an error
                 return;
             } else if (stderrLines[stderrLines.length - 1]
                 .match(/^ENOENT, open.*\.xml/)) {
-                // ignore non-existent errors
+                // VM doesn't exist, not really an error
                 return;
             }
+        } else if (err.stderr && err.stderr.match(/^ENOENT, open.*\.xml/)) {
+            // VM doesn't exist, not really an error
+            return;
         }
         console.log(err); // eslint-disable-line
     }
