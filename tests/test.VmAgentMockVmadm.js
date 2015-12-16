@@ -160,9 +160,7 @@ function _test(t) {
         {vm: 1, change: 'set', field: 'cpu_cap', value: 800},
         {vm: 1, change: 'del', field: 'cpu_cap'},
         {vm: 0, change: 'set', field: 'customer_metadata',
-            value: {hello: 'world'}},
-        {vm: 2, change: 'set', field: 'zfs_root_compression',
-            value: 'lz4'}
+            value: {hello: 'world'}}
     ];
     var vmAgent;
 
