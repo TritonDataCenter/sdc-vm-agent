@@ -145,7 +145,7 @@ check:: check-eslint
 
 .PHONY: check-eslint
 check-eslint: $(ESLINT)
-	@./node_modules/.bin/eslint ./
+	@$< ./
 
 include ./tools/mk/Makefile.deps
 ifeq ($(shell uname -s),SunOS)
