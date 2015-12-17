@@ -48,7 +48,8 @@ Typically sdc-vm-agent development is done by:
 
 ## Testing
 
-To run the vm-agent tests, go to the GZ and:
+To run the vm-agent tests, run the following from the GZ on an SDC node (HN or
+CN) with vm-agent installed:
 
     cd /opt/smartdc/agents/lib/node_modules/vm-agent
     ./runtests
