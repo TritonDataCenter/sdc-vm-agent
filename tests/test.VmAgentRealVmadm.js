@@ -47,7 +47,7 @@ function newConfig() {
     var config = {
         log: mocks.Logger,
         server_uuid: node_uuid.v4(),
-        periodicInterval: PERIODIC_INTERVAL,
+        periodic_interval: PERIODIC_INTERVAL,
         vmapi_url: 'http://127.0.0.1/'
     };
 

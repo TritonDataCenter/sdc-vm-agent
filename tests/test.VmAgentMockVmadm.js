@@ -169,7 +169,9 @@ function _test(t) {
 
         mocks.Vmadm.putVm(newVm);
         t.ok(newVm, 'created VM ' + (newVm ? newVm.uuid : 'undefined'));
-        vmAgent.watcher.emit('VmCreated', newVm.uuid);
+        setImmediate(function _emitImmediately() {
+            vmAgent.watcher.emit('VmCreated', newVm.uuid);
+        });
     }
 
     function _modVm() {
@@ -183,7 +185,9 @@ function _test(t) {
         }
         t.ok(true, 'modified VM ' + mod.field + '='
             + vmadmVms[mod.vm][mod.field]);
-        vmAgent.watcher.emit('VmModified', vmadmVms[mod.vm].uuid);
+        setImmediate(function _emitImmediately() {
+            vmAgent.watcher.emit('VmModified', vmadmVms[mod.vm].uuid);
+        });
     }
 
     function _delVm() {
@@ -191,7 +195,9 @@ function _test(t) {
         var vm = vmadmVms.pop();
 
         t.ok(true, 'deleted VM ' + vm.uuid);
-        vmAgent.watcher.emit('VmDeleted', vm.uuid);
+        setImmediate(function _emitImmediately() {
+            vmAgent.watcher.emit('VmDeleted', vm.uuid);
+        });
     }
 
     // 1. When VmAgent is doing its initialization, it does a vmadm.lookup for
@@ -414,7 +420,9 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
 
         modFn(vmadmVms[0]);
         // after caller modifies VM, notify VmWatcher
-        vmAgent.watcher.emit('VmModified', vmadmVms[0].uuid);
+        setImmediate(function _emitImmediately() {
+            vmAgent.watcher.emit('VmModified', vmadmVms[0].uuid);
+        });
         modIdx++;
     }
 
@@ -603,7 +611,9 @@ test('VmAgent sends deletion events after PUT failures', function _test(t) {
             // now delete the VM.
             deletedVm = vmadmVms.pop();
             t.ok(true, 'deleted VM ' + deletedVm.uuid);
-            vmAgent.watcher.emit('VmDeleted', deletedVm.uuid);
+            setImmediate(function _emitImmediately() {
+                vmAgent.watcher.emit('VmDeleted', deletedVm.uuid);
+            });
 
             deletedVmUpdate = JSON.parse(JSON.stringify(deletedVm));
             deletedVmUpdate.state = 'destroyed';

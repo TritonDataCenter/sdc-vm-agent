@@ -131,7 +131,7 @@ function fakeVmadm() {
 }
 
 fakeVmadm.lookup = function fakeVmadmLookup(search, opts, callback) {
-    process.nextTick(function _delayedLookupEmit() {
+    setImmediate(function _emitImmediately() {
         coordinator.emit('vmadm.lookup', search, opts);
     });
     if (vmadmErr) {
@@ -164,7 +164,7 @@ fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
         vmobj = null;
     }
 
-    process.nextTick(function _delayedLoadEmit() {
+    setImmediate(function _emitImmediately() {
         coordinator.emit('vmadm.load', opts, err);
     });
 
@@ -215,7 +215,7 @@ function fakeVmapi() {
 }
 
 fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
-    process.nextTick(function _delayedGetEmit() {
+    setImmediate(function _emitImmediately() {
         coordinator.emit('vmapi.getVms', server_uuid);
     });
     if (vmapiGetErr) {
@@ -227,7 +227,7 @@ fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
 
 fakeVmapi.prototype.updateServerVms = // eslint-disable-line
 function updateServerVms(server_uuid, vmobjs, callback) {
-    process.nextTick(function _delayedUpdateVmsEmit() {
+    setImmediate(function _emitImmediately() {
         coordinator.emit('vmapi.updateServerVms', vmobjs, server_uuid);
     });
     if (vmapiPutErr) {
@@ -246,7 +246,7 @@ fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
         err = vmapiErrVms[vmobj.uuid];
     }
 
-    process.nextTick(function _delayedUpdateVmEmit() {
+    setImmediate(function _emitImmediately() {
         coordinator.emit('vmapi.updateVm', vmobj,
             (err ? err : null));
     });
