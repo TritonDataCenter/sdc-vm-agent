@@ -10,6 +10,7 @@
 
 var execFile = require('child_process').execFile;
 
+var assert = require('assert-plus');
 var test = require('tape');
 var vmadm = require('vmadm');
 
@@ -69,6 +70,7 @@ test('load existing VMs', function _test(t) {
     vmadm.lookup({}, opts, function _onLookup(err, vms) {
         t.ifError(err, 'vmadm lookup');
         if (vms) {
+            assert.arrayOfObject(vms, 'vms');
             vms.forEach(function _pushVm(vm) {
                 existingVms.push(vm.uuid);
             });
@@ -79,6 +81,9 @@ test('load existing VMs', function _test(t) {
 
 test('starting FsWatcher', function _test(t) {
     function _onVmUpdate(vmUuid, updateType /* , updateObj */) {
+        assert.uuid(vmUuid, 'vmUuid');
+        assert.string(updateType, 'updateType');
+
         // ignore events from VMs that existed when we started
         if (existingVms.indexOf(vmUuid) === -1) {
             events.push({

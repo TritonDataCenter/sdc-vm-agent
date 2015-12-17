@@ -99,16 +99,16 @@ test('starting VmWatcher', function _test(t) {
         }
     }
 
-    watcher.on('VmCreated', function _onCreate(vm_uuid) {
-        _onVmEvent(vm_uuid, 'create');
+    watcher.on('VmCreated', function _onCreate(vm_uuid, watcherName) {
+        _onVmEvent(vm_uuid, 'create', watcherName);
     });
 
-    watcher.on('VmModified', function _onModify(vm_uuid) {
-        _onVmEvent(vm_uuid, 'modify');
+    watcher.on('VmModified', function _onModify(vm_uuid, watcherName) {
+        _onVmEvent(vm_uuid, 'modify', watcherName);
     });
 
-    watcher.on('VmDeleted', function _onDelete(vm_uuid) {
-        _onVmEvent(vm_uuid, 'delete');
+    watcher.on('VmDeleted', function _onDelete(vm_uuid, watcherName) {
+        _onVmEvent(vm_uuid, 'delete', watcherName);
     });
 
     watcher.start();

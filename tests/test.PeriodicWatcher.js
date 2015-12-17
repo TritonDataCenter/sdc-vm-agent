@@ -10,6 +10,7 @@
 
 var execFile = require('child_process').execFile;
 
+var assert = require('assert-plus');
 var test = require('tape');
 var vmadm = require('vmadm');
 
@@ -32,6 +33,10 @@ var watcher;
 
 function waitEvent(t, evt, vmUuid, eventIdx) {
     var loops = 0;
+
+    assert.string(evt, 'evt');
+    assert.uuid(vmUuid, 'vmUuid');
+    assert.number(eventIdx, 'eventIdx');
 
     function _waitEvent() {
         var i;
@@ -71,6 +76,7 @@ test('load existing VMs', function _test(t) {
     vmadm.lookup({}, opts, function _onLookup(err, vms) {
         t.ifError(err, 'vmadm lookup');
         if (vms) {
+            assert.arrayOfObject(vms, 'vms');
             vms.forEach(function _pushVm(vm) {
                 existingVms.push(vm.uuid);
             });

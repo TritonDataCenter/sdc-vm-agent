@@ -43,6 +43,7 @@ if [[ $(id -u) != 0 ]]; then
 fi
 
 failed_tests=0
+failed_test_names=
 set +o errexit
 set -o pipefail
 for t in $(ls tests/test.*.js); do
@@ -50,6 +51,7 @@ for t in $(ls tests/test.*.js); do
         | tee -a /tmp/test.output.$$
     if [[ $? != 0 ]]; then
         failed_tests=$((${failed_tests} + 1))
+        failed_test_names="${failed_test_names} ${t}"
     fi
 done
 set +o pipefail
@@ -74,14 +76,20 @@ fi
 if [[ -t 0 ]]; then
     # We're on a terminal so output the summary
     echo "#"
-    echo "# $1 TEST COMPLETE IN ${elapsed} SECONDS, SUMMARY:"
+    echo "# TESTS COMPLETE IN ${elapsed} SECONDS, SUMMARY:"
     echo "#"
-    echo -e "# \033[32mPASS: ${passed} / ${tests}\033[39m"
+    echo -e "#   \033[32mPASS: ${passed} / ${tests}\033[39m"
     if [[ ${skipped} -gt 0 ]]; then
-        echo -e "# \033[31mSKIP: ${skipped} / ${tests}\033[39m"
+        echo -e "#   \033[31mSKIP: ${skipped} / ${tests}\033[39m"
     fi
     if [[ ${fail} -gt 0 ]]; then
-        echo -e "# \033[31mFAIL: ${fail} / ${tests}\033[39m"
+        echo -e "#   \033[31mFAIL: ${fail} / ${tests}\033[39m"
+        echo "#"
+        echo "# FAILED TESTS:"
+        echo "#"
+        for t in ${failed_test_names}; do
+            echo "#   - ${t}"
+        done
     fi
     echo "#"
 fi

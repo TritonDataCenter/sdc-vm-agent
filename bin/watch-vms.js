@@ -1,3 +1,5 @@
+#!/opt/smartdc/agents/lib/node_modules/vm-agent/node/bin/node
+
 /*
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -11,6 +13,12 @@
 /*
  * This is a tool mostly for testing/debugging. When run it will list the set of
  * events it sees, and which watcher saw them.
+ *
+ * Run as:
+ *
+ *   /opt/smartdc/agents/lib/node_modules/vm-agent/bin/watch-vms.js
+ *
+ * where you have vm-agent installed.
  */
 
 /* eslint-disable no-console */

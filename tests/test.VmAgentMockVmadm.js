@@ -8,6 +8,7 @@
  * Copyright (c) 2015, Joyent, Inc.
  */
 
+var assert = require('assert-plus');
 var diff = require('deep-diff').diff;
 var mockery = require('mockery');
 var test = require('tape');
@@ -46,6 +47,7 @@ function createVm(template, properties) {
     vmobj.alias = node_uuid.v4().split('-')[0];
 
     if (properties) {
+        assert.object(properties, 'properties');
         for (prop in properties) {
             if (properties.hasOwnProperty(prop)) {
                 vmobj[prop] = properties[prop];
@@ -170,7 +172,7 @@ function _test(t) {
         mocks.Vmadm.putVm(newVm);
         t.ok(newVm, 'created VM ' + (newVm ? newVm.uuid : 'undefined'));
         setImmediate(function _emitImmediately() {
-            vmAgent.watcher.emit('VmCreated', newVm.uuid);
+            vmAgent.watcher.emit('VmCreated', newVm.uuid, 'dummy');
         });
     }
 
@@ -186,7 +188,7 @@ function _test(t) {
         t.ok(true, 'modified VM ' + mod.field + '='
             + vmadmVms[mod.vm][mod.field]);
         setImmediate(function _emitImmediately() {
-            vmAgent.watcher.emit('VmModified', vmadmVms[mod.vm].uuid);
+            vmAgent.watcher.emit('VmModified', vmadmVms[mod.vm].uuid, 'dummy');
         });
     }
 
@@ -196,7 +198,7 @@ function _test(t) {
 
         t.ok(true, 'deleted VM ' + vm.uuid);
         setImmediate(function _emitImmediately() {
-            vmAgent.watcher.emit('VmDeleted', vm.uuid);
+            vmAgent.watcher.emit('VmDeleted', vm.uuid, 'dummy');
         });
     }
 
@@ -421,7 +423,7 @@ test('VmAgent retries when VMAPI errors on PUT /vms/<uuid>', function _test(t) {
         modFn(vmadmVms[0]);
         // after caller modifies VM, notify VmWatcher
         setImmediate(function _emitImmediately() {
-            vmAgent.watcher.emit('VmModified', vmadmVms[0].uuid);
+            vmAgent.watcher.emit('VmModified', vmadmVms[0].uuid, 'dummmy');
         });
         modIdx++;
     }
@@ -612,7 +614,7 @@ test('VmAgent sends deletion events after PUT failures', function _test(t) {
             deletedVm = vmadmVms.pop();
             t.ok(true, 'deleted VM ' + deletedVm.uuid);
             setImmediate(function _emitImmediately() {
-                vmAgent.watcher.emit('VmDeleted', deletedVm.uuid);
+                vmAgent.watcher.emit('VmDeleted', deletedVm.uuid, 'dummy');
             });
 
             deletedVmUpdate = JSON.parse(JSON.stringify(deletedVm));

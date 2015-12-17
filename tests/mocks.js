@@ -66,8 +66,11 @@ var vmapiErrVms = {};
  */
 function vmapifyVm(vmobj) {
     var defaultFields = JSON.parse(JSON.stringify(VMAPI.VMAPI_DEFAULT_FIELDS));
-    var newObj = JSON.parse(JSON.stringify(vmobj));
+    var newObj;
 
+    assert.object(vmobj);
+
+    newObj = JSON.parse(JSON.stringify(vmobj));
     if (newObj.brand === 'kvm') {
         [
             'cpu_type',
@@ -94,13 +97,15 @@ function vmapifyVm(vmobj) {
 }
 
 function vmadmifyVm(vmobj) {
-    var newObj = JSON.parse(JSON.stringify(vmobj));
+    var newObj;
 
+    assert.object(vmobj, 'vmobj');
     assert.uuid(vmobj.uuid, 'vmobj.uuid');
     assert.string(vmobj.brand, 'vmobj.brand');
     assert.string(vmobj.state, 'vmobj.state');
     assert.string(vmobj.zone_state, 'vmobj.zone_state');
 
+    newObj = JSON.parse(JSON.stringify(vmobj));
     if (!vmobj.snapshots) {
         newObj.snapshots = [];
     }
@@ -146,6 +151,9 @@ fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
     var vmobj;
     var vmobjIdx;
 
+    assert.object(opts, 'opts');
+    assert.uuid(opts.uuid, 'opts.uuid');
+
     for (vmobjIdx = 0; vmobjIdx < vmadmVms.length; vmobjIdx++) {
         if (vmadmVms[vmobjIdx].uuid === opts.uuid) {
             vmobj = vmadmVms[vmobjIdx];
@@ -175,6 +183,9 @@ fakeVmadm.load = function fakeVmadmLoad(opts, callback) {
 // manage the set of expected VMs / errors for our fake VMAPI.
 fakeVmadm.putVm = function putVm(vmobj) {
     var vmIdx;
+
+    assert.object(vmobj, 'vmobj');
+    assert.uuid(vmobj.uuid, 'vmobj.uuid');
 
     for (vmIdx = 0; vmIdx < vmadmVms.length; vmIdx++) {
         if (vmadmVms[vmIdx].uuid === vmobj.uuid) {
@@ -215,6 +226,9 @@ function fakeVmapi() {
 }
 
 fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
+    assert.uuid(server_uuid, 'server_uuid');
+    assert.func(callback, 'callback');
+
     setImmediate(function _emitImmediately() {
         coordinator.emit('vmapi.getVms', server_uuid);
     });
@@ -227,6 +241,10 @@ fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
 
 fakeVmapi.prototype.updateServerVms = // eslint-disable-line
 function updateServerVms(server_uuid, vmobjs, callback) {
+    assert.uuid(server_uuid, 'server_uuid');
+    assert.object(vmobjs, 'vmobjs');
+    assert.func(callback, 'callback');
+
     setImmediate(function _emitImmediately() {
         coordinator.emit('vmapi.updateServerVms', vmobjs, server_uuid);
     });
@@ -239,6 +257,9 @@ function updateServerVms(server_uuid, vmobjs, callback) {
 
 fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
     var err;
+
+    assert.object(vmobj, 'vmobj');
+    assert.func(callback, 'callback');
 
     if (vmapiPutErr) {
         err = vmapiPutErr;
@@ -258,6 +279,8 @@ fakeVmapi.prototype.updateVm = function updateVm(vmobj, callback) {
 // manage the set of expected VMs / errors for our fake VMAPI.
 fakeVmapi.putVm = function putVm(vmobj) {
     var vmIdx;
+
+    assert.object(vmobj, 'vmobj');
 
     for (vmIdx = 0; vmIdx < vmapiVms.length; vmIdx++) {
         if (vmapiVms[vmIdx].uuid === vmobj.uuid) {
@@ -291,6 +314,8 @@ fakeVmapi.setPutError = function setPutError(err) {
 };
 
 fakeVmapi.setVmError = function setVmError(vmUuid, err) {
+    assert.uuid(vmUuid, 'vmUuid');
+
     if (!err) {
         delete vmapiErrVms[vmUuid];
         return;
