@@ -303,7 +303,7 @@ fakeVmapi.getPutError = function getPutError() {
 };
 
 fakeVmapi.VMAPI_DEFAULT_FIELDS = VMAPI.VMAPI_DEFAULT_FIELDS;
-fakeVmapi.VMAPI_UNSET_FIELDS = VMAPI.VMAPI_UNSET_FIELDS;
+fakeVmapi.VMAPI_ALWAYS_SET_FIELDS = VMAPI.VMAPI_ALWAYS_SET_FIELDS;
 
 
 // Fake VmWatcher for testing
