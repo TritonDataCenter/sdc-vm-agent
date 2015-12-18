@@ -31,6 +31,7 @@ var smartosVmUUID;
 var watcher;
 
 
+// Waits for event 'evt' to happen for vmUuid starting at eventIdx
 function waitEvent(t, evt, vmUuid, eventIdx) {
     var loops = 0;
 
@@ -59,6 +60,7 @@ function waitEvent(t, evt, vmUuid, eventIdx) {
 
     _waitEvent();
 }
+
 
 test('find SmartOS image', function _test(t) {
     common.testFindSmartosImage(t, function _findSmartosCb(err, latest) {
@@ -252,31 +254,32 @@ test('set do_not_inventory', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'delete', smartosVmUUID, eventIdx);
+            // Since the watcher itself has no concept of do_not_inventory and
+            // that's all we're testing here, we should see a modify. It's
+            // VmAgent that should realize when it goes to update based on this
+            // event that it should be ignored.
+            waitEvent(t, 'modify', smartosVmUUID, eventIdx);
         }
     });
 });
 
 test('unset do_not_inventory', function _test(t) {
     var eventIdx = events.length;
+    var opts = {};
 
-    // We have to use zonecfg to unset do_not_inventory because node-vmadm won't
-    // see it (on purpose).
-    execFile('/usr/sbin/zonecfg',
-        ['-z', smartosVmUUID, 'remove attr name=do-not-inventory'],
-        function _unsetDoNotInventoryCb(err, stdout, stderr) {
-            if (err) {
-                err.stderr = stderr;
-                err.stdout = stdout;
-            }
-            t.ifError(err, 'unset do_not_inventory for VM ' + smartosVmUUID);
-            if (err) {
-                t.end();
-            } else {
-                waitEvent(t, 'create', smartosVmUUID, eventIdx);
-            }
+    opts.log = mocks.Logger;
+    opts.uuid = smartosVmUUID;
+    opts.include_dni = true;
+    opts.do_not_inventory = false;
+
+    vmadm.update(opts, function _vmadmUnsetDNI(err) {
+        t.ifError(err, 'unset do_not_inventory for VM ' + smartosVmUUID);
+        if (err) {
+            t.end();
+        } else {
+            waitEvent(t, 'modify', smartosVmUUID, eventIdx);
         }
-    );
+    });
 });
 
 test('reboot VM', function _test(t) {

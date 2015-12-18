@@ -16,7 +16,7 @@
         "restify-clients": "1.1.1",
         "tape": "4.2.2",
         "vasync": "1.6.3",
-        "vmadm": "git+ssh://git@github.com:joyent/node-vmadm.git#e353cd69bb837a16cfeeaae03be9a4f03e704021"
+        "vmadm": "git+ssh://git@github.com:joyent/node-vmadm.git#58025bb7d7a2ee09763e4acb23b5c11bc9dec939"
     },
     "sdcDependencies": {
         "config-agent": ">=1.3.0"
