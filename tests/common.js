@@ -14,6 +14,9 @@
 
 var execFile = require('child_process').execFile;
 
+// GLOBAL
+var BUFFER_SIZE = 32 * 1024 * 1024; // eslint-disable-line
+
 
 function testFindSmartosImage(t, callback) {
     var args = ['list', '-H', '-j', '-o', 'uuid,tags', 'os=smartos'];
@@ -21,9 +24,10 @@ function testFindSmartosImage(t, callback) {
     var img;
     var imgs = {};
     var latest;
+    var opts = {maxBuffer: BUFFER_SIZE};
     var smartosImageUUID;
 
-    execFile('/usr/sbin/imgadm', args, function _onImgadm(err, stdout) {
+    execFile('/usr/sbin/imgadm', args, opts, function _onImgadm(err, stdout) {
         t.ifError(err, 'load images from imgadm');
         if (err) {
             callback(err, smartosImageUUID);
