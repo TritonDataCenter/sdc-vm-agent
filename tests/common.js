@@ -26,11 +26,17 @@ function testFindSmartosImage(t, callback) {
     execFile('/usr/sbin/imgadm', args, function _onImgadm(err, stdout) {
         t.ifError(err, 'load images from imgadm');
         if (err) {
-            callback(smartosImageUUID);
+            callback(err, smartosImageUUID);
             return;
         }
 
-        imgs = JSON.parse(stdout);
+        try {
+            imgs = JSON.parse(stdout);
+        } catch (e) {
+            callback(e);
+            return;
+        }
+
         for (idx = 0; idx < imgs.length; idx++) {
             img = imgs[idx];
             if (img.manifest.tags.smartdc
@@ -42,7 +48,7 @@ function testFindSmartosImage(t, callback) {
         }
 
         t.ok(smartosImageUUID, 'found SmartOS image_uuid: ' + smartosImageUUID);
-        callback(smartosImageUUID);
+        callback(null, smartosImageUUID);
     });
 }
 

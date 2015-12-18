@@ -63,7 +63,11 @@ function resetGlobalState(vmAgent) {
 }
 
 test('find SmartOS image', function _test(t) {
-    common.testFindSmartosImage(t, function _findSmartosCb(latest) {
+    common.testFindSmartosImage(t, function _findSmartosCb(err, latest) {
+        t.ifError(err, 'find SmartOS Image');
+        if (err) {
+            throw new Error('Cannot continue without SmartOS Image');
+        }
         smartosImageUUID = latest;
         t.end();
     });
