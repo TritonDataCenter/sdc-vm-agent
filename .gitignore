@@ -6,6 +6,7 @@ docs/*.html
 cscope.in.out
 cscope.po.out
 cscope.out
+npm-debug.log
 smf/manifests/bapi.xml
 describe
 vm-agent-*.tgz
