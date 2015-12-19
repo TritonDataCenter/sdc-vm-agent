@@ -139,7 +139,7 @@ dumpvar:
 
 # eslint ftw
 ESLINT = ./node_modules/.bin/eslint
-$(ESLINT):
+$(ESLINT): | $(NPM_EXEC)
 	$(RUN_NPM_INSTALL)
 
 check:: check-eslint
