@@ -230,7 +230,8 @@ fakeVmapi.prototype.getVms = function getVms(server_uuid, callback) {
     assert.func(callback, 'callback');
 
     setImmediate(function _emitImmediately() {
-        coordinator.emit('vmapi.getVms', server_uuid);
+        coordinator.emit('vmapi.getVms', server_uuid,
+            (vmapiGetErr ? vmapiGetErr : null));
     });
     if (vmapiGetErr) {
         callback(vmapiGetErr);

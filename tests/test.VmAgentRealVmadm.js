@@ -839,3 +839,113 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
         t.fail('should not have seen vmadm.lookup, should have real vmadm');
     });
 });
+
+/*
+ * When VmAgent starts, VMAPI is unavailable. After 5 failed attempts the
+ * problem should be resolved and then we create a new VM after the initial
+ * update has succeeded.
+ */
+test('VmAgent works after initial errors', function _test(t) {
+    var config = newConfig();
+    var payload = {
+        alias: 'vm-agent_testvm',
+        autoboot: false,
+        brand: 'joyent-minimal',
+        image_uuid: smartosImageUUID,
+        uuid: node_uuid.v4()
+    };
+    var resolveAfter = 3;
+    var vmAgent;
+    var vmapiGetErr;
+
+    vasync.pipeline({arg: {}, funcs: [
+        function _startVmAgent(arg, cb) {
+            // simulate connection refused
+            vmapiGetErr = new Error('Connection Refused');
+            vmapiGetErr.code = 'ECONNREFUSED';
+            vmapiGetErr.errno = 'ECONNREFUSED';
+            vmapiGetErr.syscall = 'connect';
+            mocks.Vmapi.setGetError(vmapiGetErr);
+
+            t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
+            vmAgent = new VmAgent(config);
+            vmAgent.start();
+            cb();
+        }, function _waitInitialUpdateVms(arg, cb) {
+            var seenAttempts = 0;
+            // VmAgent should be initializing itself and it'll send the initial
+            // GET /vms, which will fail. We'll allow it to fail resolveAfter
+            // times and then remove the error. Then we should see the PUT /vms
+            // at which point we'll move on.
+
+            coordinator.once('vmapi.updateServerVms',
+                function _onUpdateVms(vmobjs /* , server_uuid */) {
+                    var keys = Object.keys(vmobjs);
+
+                    t.ok(true, 'saw PUT /vms: (' + keys.length + ')');
+                    cb();
+                }
+            );
+
+            coordinator.on('vmapi.getVms',
+                function _onVmapiGetVms(server_uuid, err) {
+                    seenAttempts++;
+                    t.ok(true, 'saw GET /vms [' + seenAttempts + ']'
+                        + (err ? ' -- ' + err.code : ''));
+                    if (seenAttempts >= resolveAfter) {
+                        mocks.Vmapi.setGetError(null);
+                    }
+                }
+            );
+        }, function _createVm(arg, cb) {
+            // now that init is complete, create a VM and make sure we see an
+            // update.
+
+            payload.log = config.log;
+
+            coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj) {
+                if (vmobj.uuid !== payload.uuid) {
+                    // ignore changes that are from other VMs on this system
+                    return;
+                }
+                coordinator.removeAllListeners('vmapi.updateVm');
+                t.ok(true, 'VMAPI saw update for new VM.');
+                cb();
+            });
+
+            vmadm.create(payload, function _vmadmCreateCb(err, info) {
+                t.ifError(err, 'create VM');
+                if (!err && info) {
+                    t.equal(info.uuid, payload.uuid, 'new VM has uuid: '
+                        + info.uuid);
+                }
+            });
+        }, function _deleteVm(arg, cb) {
+            coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj) {
+                if (vmobj.uuid !== payload.uuid) {
+                    // ignore changes that are from other VMs on this system
+                    return;
+                }
+                if (vmobj.state === 'destroyed'
+                    && vmobj.zone_state === 'destroyed') {
+                    // when we see destroyed, we'll move on
+                    t.ok(true, 'VMAPI saw destroy for VM');
+                    coordinator.removeAllListeners('vmapi.updateVm');
+                    cb();
+                    return;
+                }
+            });
+
+            vmadm.delete({log: config.log, uuid: payload.uuid},
+                function _vmadmDeleteCb(err) {
+                    t.ifError(err, 'delete VM: '
+                        + (err ? err.message : 'success'));
+                }
+            );
+        }
+    ]}, function _pipelineComplete(err) {
+        t.ifError(err, 'pipeline complete');
+        resetGlobalState(vmAgent); // so it's clean for the next test
+        t.end();
+    });
+});
