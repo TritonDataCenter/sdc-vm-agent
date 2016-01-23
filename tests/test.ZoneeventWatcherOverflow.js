@@ -125,7 +125,7 @@ test('create VMs', function _test(t) {
         inputs: vmsToCreate,
         func: _createVm
     }, function _afterForEachParallel(err) {
-        t.ifError(err, 'VM should have been created successfully');
+        t.ifError(err, 'VMs should have been created successfully');
         t.end();
     });
 });
