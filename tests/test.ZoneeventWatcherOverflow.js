@@ -27,6 +27,10 @@ var vmEvents = {};
 
 // "CONFIG"
 var CHARS_PER_LINE = 200;  // at least this many chars in a zoneevent line
+// HIGH_WATER_MARK sets the highWaterMark for the lstream in ZoneeventWatcher.
+// default is 16k! takes too long to get there, so we set to a lower value to
+// ensure that we're going to overrun it with events.
+var HIGH_WATER_MARK = 32;
 var STRAGGLER_WAIT = 5000; // wait this many ms for events after delete
 var OVERHEAD_EVENTS = 15;  // events we expect for create/delete
 var RESTART_EVENTS = 9;    // events we expect for each restart
@@ -77,7 +81,7 @@ test('starting ZoneeventWatcher', function _test(t) {
 
     watcher = new ZoneeventWatcher({
         debugEvents: true,
-        highWaterMark: 32, // default is 16k! takes too long to get there.
+        highWaterMark: HIGH_WATER_MARK,
         log: mocks.Logger,
         updateVm: _onVmUpdate
     });
@@ -121,7 +125,7 @@ test('create VMs', function _test(t) {
         inputs: vmsToCreate,
         func: _createVm
     }, function _afterForEachParallel(err) {
-        t.ifError(err, 'done creating');
+        t.ifError(err, 'VM should have been created successfully');
         t.end();
     });
 });
@@ -198,6 +202,7 @@ test('delete VMs', function _test(t) {
 test('stop ZoneeventWatcher', function _test(t) {
     // grab the totals so we can compare to expected in final check.
     debugData = {
+        ringBuffer: watcher.event_ringbuffer,
         totalEvents: watcher.totalEvents,
         totalLen: watcher.totalLen
     };
@@ -213,12 +218,43 @@ test('stop ZoneeventWatcher', function _test(t) {
 test('check final state', function _test(t) {
     var expectedTotal = (NUM_VMS * OVERHEAD_EVENTS)
         + (NUM_VMS * NUM_RESTARTS_PER_VM * RESTART_EVENTS);
+    var firstBuf;
+    var lastBuf;
+
+    // ensure the number of events we received was higher than the
+    // HIGH_WATER_MARK so that we know we are actually in flowing mode.
+    t.ok(debugData.totalEvents > HIGH_WATER_MARK, 'events('
+        + debugData.totalEvents + ') > HIGH_WATER_MARK(' + HIGH_WATER_MARK
+        + ')');
 
     t.ok(debugData.totalEvents >= expectedTotal, debugData.totalEvents + ' >= '
         + expectedTotal);
     // lines are > CHARS_PER_LINE characters each, so we have at least this much
     t.ok(debugData.totalLen >= (expectedTotal * CHARS_PER_LINE),
         debugData.totalLen + ' >= ' + (expectedTotal * CHARS_PER_LINE));
+
+    // ensure the event_ringbuffer was populated with events
+    t.ok(debugData.ringBuffer.length > 0, 'have ' + debugData.ringBuffer.length
+        + ' elements in the ringbuffer');
+
+    if (debugData.ringBuffer.length > 0) {
+        t.ok(debugData.ringBuffer[0].hasOwnProperty('event_line'),
+            'ringBuffer entries have event_line');
+        t.ok(debugData.ringBuffer[0].hasOwnProperty('event_timestamp'),
+            'ringBuffer entries have event_timestamp');
+    }
+
+    if (debugData.ringBuffer.length > 1) {
+        // we have more than one, so make sure the first element is older than
+        // the last.
+        firstBuf = debugData.ringBuffer[0];
+        lastBuf = debugData.ringBuffer[debugData.ringBuffer.length - 1];
+        t.ok(firstBuf.event_timestamp < lastBuf.event_timestamp,
+            'ringBuffer[0].event_timestamp(' + firstBuf.event_timestamp + ') < '
+            + 'ringBuffer[' + (debugData.ringBuffer.length - 1)
+            + '].event_timestamp(' + lastBuf.event_timestamp + ')');
+    }
+
     t.end();
 });
 
