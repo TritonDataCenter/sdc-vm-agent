@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2016, Joyent, Inc.
  */
 
 var execFile = require('child_process').execFile;
@@ -30,9 +30,10 @@ var VmAgent;
 
 // For tests we can lower the frequency the periodic watcher polls so we finish
 // in more reasonable time.
-var PERIODIC_INTERVAL = 1000;
-var UPDATES_POLL_FREQ = 50; // Freq. to poll the updates array for changes. (ms)
-var WAIT_NON_UPDATE = 30000; // ms, how long to wait before assuming no update
+var PERIODIC_INTERVAL_MS = 1000;
+var UPDATES_POLL_FREQ_MS = 50; // Freq. to poll the updates array for changes
+var WAIT_NON_UPDATE_MS = 30000; // how long to wait before assuming no update
+var WAIT_DNI_DELETE_MS = 5000; // how long to wait for events after deleting
 
 
 /*
@@ -48,7 +49,7 @@ function newConfig() {
     var config = {
         log: mocks.Logger,
         server_uuid: node_uuid.v4(),
-        periodic_interval: PERIODIC_INTERVAL,
+        periodic_interval: PERIODIC_INTERVAL_MS,
         vmapi_url: 'http://127.0.0.1/'
     };
 
@@ -133,16 +134,16 @@ function waitForUpdate(startIdx, params, cb) {
     if (!foundMatch) {
         setTimeout(function _retryWaitForUpdate() {
             waitForUpdate(startIdx, params, cb);
-        }, UPDATES_POLL_FREQ);
+        }, UPDATES_POLL_FREQ_MS);
         return;
     }
 
     cb();
 }
 
-// Wait WAIT_NON_UPDATE ms and ensure there were no updates for VM in that time.
-// It will call cb() after WAIT_NON_UPDATE ms with (err, sawUpdates) where
-// sawUpdates is a count of the number of updates seen for this VM.
+// Wait WAIT_NON_UPDATE_MS ms and ensure there were no updates for VM in that
+// time. It will call cb() after WAIT_NON_UPDATE_MS ms with (err, sawUpdates)
+// where sawUpdates is a count of the number of updates seen for this VM.
 function waitNonUpdate(startIdx, vmUuid, cb) {
     assert.number(startIdx, 'startIdx');
     assert.uuid(vmUuid, 'vmUuid');
@@ -159,7 +160,7 @@ function waitNonUpdate(startIdx, vmUuid, cb) {
         }
 
         cb(null, sawUpdates);
-    }, WAIT_NON_UPDATE);
+    }, WAIT_NON_UPDATE_MS);
 }
 
 function performThenWait(performFn, callback) {
@@ -836,6 +837,132 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
     });
 
     coordinator.on('vmadm.lookup', function _onVmadmLookup() {
+        t.fail('should not have seen vmadm.lookup, should have real vmadm');
+    });
+});
+
+/*
+ * This test is designed to validate the correct handling of the
+ * do_not_inventory flag when creating a new DNI VM before or after the VmAgent
+ * is started. This is done by:
+ *
+ *  - creating a VM with do_not_inventory
+ *  - starting VmAgent and allowing the fake VMAPI to fill with the VMs from
+ *    this system (but not the do_not_inventory VM)
+ *  - creating a 2nd VM with do_not_inventory
+ *  - deleting both the VMs with do_not_inventory
+ *  - confirm that no events have been sent to VMAPI for these DNI VMs
+ *  - cleanup
+ *
+ */
+test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
+    var config = newConfig();
+    var payload = {
+        autoboot: true,
+        brand: 'joyent-minimal',
+        do_not_inventory: true,
+        image_uuid: smartosImageUUID
+    };
+    var payload1 = JSON.parse(JSON.stringify(payload));
+    var payload2 = JSON.parse(JSON.stringify(payload));
+    var vmAgent;
+
+    payload1.uuid = node_uuid.v4();
+    payload1.alias = 'vm-agent_testvm1';
+    payload1.log = config.log;
+    payload2.uuid = node_uuid.v4();
+    payload2.alias = 'vm-agent_testvm2';
+    payload2.log = config.log;
+
+    vasync.pipeline({arg: {}, funcs: [
+        function _createDoNotInventoryVm1(arg, cb) {
+            // creating a VM with DNI should not result in it being in the
+            // initial update.
+            vmadm.create(payload1, function _vmadmCreateCb(err, info) {
+                t.ifError(err, 'create DNI VM1');
+                if (!err && info) {
+                    t.ok(info.uuid, 'new DNI VM1 has uuid: ' + info.uuid);
+                }
+                cb(err);
+            });
+        }, function _startVmAgent(arg, cb) {
+            t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
+            vmAgent = new VmAgent(config);
+            vmAgent.start();
+            cb();
+        }, function _waitInitialUpdateVms(arg, cb) {
+            // Wait for VmAgent init and it'll send the initial PUT /vms, these
+            // are real VMs on the node because we're not faking vmadm.
+            coordinator.once('vmapi.updateServerVms',
+                function _onUpdateVms(vmobjs /* , server_uuid */) {
+                    var keys = Object.keys(vmobjs);
+
+                    t.ok(true, 'saw PUT /vms: (' + keys.length + ')');
+                    cb();
+                }
+            );
+        }, function _createDoNotInventoryVm2(arg, cb) {
+            // creating a VM with DNI should not result in an update.
+            vmadm.create(payload2, function _vmadmCreateCb(err, info) {
+                t.ifError(err, 'create DNI VM2');
+                if (!err && info) {
+                    t.ok(info.uuid, 'new DNI VM2 has uuid: ' + info.uuid);
+                }
+                cb(err);
+            });
+        }, function _destroyVm1(arg, cb) {
+            //  With all modifications complete, we now delete the VM
+            vmadm.delete({
+                include_dni: true,
+                log: config.log,
+                uuid: payload1.uuid
+            }, function _vmadmDeleteCb(err) {
+                t.ifError(err, 'delete VM: '
+                    + (err ? err.message : 'success'));
+                cb(err);
+            });
+        }, function _destroyVm2(arg, cb) {
+            //  With all modifications complete, we now delete the VM
+            vmadm.delete({
+                include_dni: true,
+                log: config.log,
+                uuid: payload2.uuid
+            }, function _vmadmDeleteCb(err) {
+                t.ifError(err, 'delete VM: '
+                    + (err ? err.message : 'success'));
+                cb(err);
+            });
+        }, function _waitDestroyVm(arg, cb) {
+            setTimeout(function _waitedDestroyVm() {
+                t.ok(true, 'waited ' + WAIT_DNI_DELETE_MS + ' ms after delete');
+                cb();
+            }, WAIT_DNI_DELETE_MS);
+        }, function _checkUpdates(arg, cb) {
+            var badUpdates = 0;
+
+            updates.forEach(function _checkUpdate(vm) {
+                if (vm.uuid === payload1.uuid || vm.uuid === payload2.uuid) {
+                    badUpdates++;
+                }
+            });
+
+            t.equal(badUpdates, 0, 'no bad updates');
+            cb();
+        }
+    ]}, function _pipelineComplete(err) {
+        t.ifError(err, 'pipeline complete');
+        resetGlobalState(vmAgent); // so it's clean for the next test
+        t.end();
+    });
+
+    coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj) {
+        updates.push(vmobj);
+    });
+
+    coordinator.on('vmadm.lookup', function _onVmadmLookup() {
+        // vmadm.lookup is only emitted when the fakeVmadm is used, we're using
+        // the real vmadm so seeing this would mean something's wrong with the
+        // mocking.
         t.fail('should not have seen vmadm.lookup, should have real vmadm');
     });
 });
