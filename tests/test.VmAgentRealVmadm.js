@@ -898,10 +898,6 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
                     var keys = Object.keys(vmobjs);
 
                     t.ok(true, 'saw PUT /vms: (' + keys.length + ')');
-                    keys.forEach(function _putVmToVmapi(vm) {
-                        // ignore updates from VMs that existed when we started
-                        mocks.Vmapi.putVm(vmobjs[vm]);
-                    });
                     cb();
                 }
             );
@@ -959,14 +955,14 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
         t.end();
     });
 
-    coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj, err) {
-        if (!err) {
-            mocks.Vmapi.putVm(vmobj);
-        }
+    coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj) {
         updates.push(vmobj);
     });
 
     coordinator.on('vmadm.lookup', function _onVmadmLookup() {
+        // vmadm.lookup is only emitted when the fakeVmadm is used, we're using
+        // the real vmadm so seeing this would mean something's wrong with the
+        // mocking.
         t.fail('should not have seen vmadm.lookup, should have real vmadm');
     });
 });
