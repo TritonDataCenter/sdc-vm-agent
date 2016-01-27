@@ -30,10 +30,10 @@ var VmAgent;
 
 // For tests we can lower the frequency the periodic watcher polls so we finish
 // in more reasonable time.
-var PERIODIC_INTERVAL = 1000;
-var UPDATES_POLL_FREQ = 50; // Freq. to poll the updates array for changes. (ms)
-var WAIT_NON_UPDATE = 30000; // ms, how long to wait before assuming no update
-var WAIT_DNI_DELETE = 5000; // ms, how long to wait for events after deleting
+var PERIODIC_INTERVAL_MS = 1000;
+var UPDATES_POLL_FREQ_MS = 50; // Freq. to poll the updates array for changes
+var WAIT_NON_UPDATE_MS = 30000; // how long to wait before assuming no update
+var WAIT_DNI_DELETE_MS = 5000; // how long to wait for events after deleting
 
 
 /*
@@ -49,7 +49,7 @@ function newConfig() {
     var config = {
         log: mocks.Logger,
         server_uuid: node_uuid.v4(),
-        periodic_interval: PERIODIC_INTERVAL,
+        periodic_interval: PERIODIC_INTERVAL_MS,
         vmapi_url: 'http://127.0.0.1/'
     };
 
@@ -134,16 +134,16 @@ function waitForUpdate(startIdx, params, cb) {
     if (!foundMatch) {
         setTimeout(function _retryWaitForUpdate() {
             waitForUpdate(startIdx, params, cb);
-        }, UPDATES_POLL_FREQ);
+        }, UPDATES_POLL_FREQ_MS);
         return;
     }
 
     cb();
 }
 
-// Wait WAIT_NON_UPDATE ms and ensure there were no updates for VM in that time.
-// It will call cb() after WAIT_NON_UPDATE ms with (err, sawUpdates) where
-// sawUpdates is a count of the number of updates seen for this VM.
+// Wait WAIT_NON_UPDATE_MS ms and ensure there were no updates for VM in that
+// time. It will call cb() after WAIT_NON_UPDATE_MS ms with (err, sawUpdates)
+// where sawUpdates is a count of the number of updates seen for this VM.
 function waitNonUpdate(startIdx, vmUuid, cb) {
     assert.number(startIdx, 'startIdx');
     assert.uuid(vmUuid, 'vmUuid');
@@ -160,7 +160,7 @@ function waitNonUpdate(startIdx, vmUuid, cb) {
         }
 
         cb(null, sawUpdates);
-    }, WAIT_NON_UPDATE);
+    }, WAIT_NON_UPDATE_MS);
 }
 
 function performThenWait(performFn, callback) {
@@ -934,9 +934,9 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
             });
         }, function _waitDestroyVm(arg, cb) {
             setTimeout(function _waitedDestroyVm() {
-                t.ok(true, 'waited ' + WAIT_DNI_DELETE + ' ms after delete');
+                t.ok(true, 'waited ' + WAIT_DNI_DELETE_MS + ' ms after delete');
                 cb();
-            }, WAIT_DNI_DELETE);
+            }, WAIT_DNI_DELETE_MS);
         }, function _checkUpdates(arg, cb) {
             var badUpdates = 0;
 
