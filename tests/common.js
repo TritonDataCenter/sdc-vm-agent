@@ -43,7 +43,8 @@ function testFindSmartosImage(t, callback) {
 
         for (idx = 0; idx < imgs.length; idx++) {
             img = imgs[idx];
-            if (img.manifest.tags.smartdc
+            if (img && img.manifest && img.manifest.tags
+                && img.manifest.tags.smartdc
                 && (!latest || img.manifest.published_at > latest)) {
                 // found a newer SmartOS img!
                 smartosImageUUID = img.manifest.uuid;
