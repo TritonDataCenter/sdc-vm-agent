@@ -35,7 +35,7 @@ JSSTYLE_FLAGS =
 NODE_PREBUILT_TAG =	gz
 NODE_PREBUILT_VERSION =	v4.2.3
 ifeq ($(shell uname -s),SunOS)
-	NODE_PREBUILT_TAG =	zone
+	NODE_PREBUILT_TAG =	gz
 	# Allow building on a SmartOS image other than sdc-smartos/1.6.3.
 	NODE_PREBUILT_IMAGE =	b4bdc598-8939-11e3-bea4-8341f6861379
 endif
