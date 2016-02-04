@@ -267,6 +267,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
             });
         }, function _rebootVm(vmUuid, cb) {
             var opts = {
+                force: true, // force reboot, since soft-reboot is unreliable
                 log: config.log,
                 uuid: payload.uuid
             };
