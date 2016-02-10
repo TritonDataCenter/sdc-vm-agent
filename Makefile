@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright (c) 2015, Joyent, Inc.
+# Copyright (c) 2016, Joyent, Inc.
 #
 
 #
@@ -33,9 +33,8 @@ JSSTYLE_FLAGS =
 
 # Should be the same version as the platform's /usr/node/bin/node.
 NODE_PREBUILT_TAG =	gz
-NODE_PREBUILT_VERSION =	v0.10.26
+NODE_PREBUILT_VERSION =	v0.12.9
 ifeq ($(shell uname -s),SunOS)
-	NODE_PREBUILT_TAG =	zone
 	# Allow building on a SmartOS image other than sdc-smartos/1.6.3.
 	NODE_PREBUILT_IMAGE =	fd2cc906-8938-11e3-beab-4359c665ac99
 endif
