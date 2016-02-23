@@ -175,7 +175,6 @@ function performThenWait(performFn, callback) {
     });
 }
 
-
 /*
  * Create an initially empty fake VMAPI. Allow it to fill with the existing VMs
  * on the system. Then create a new VM using the real vmadm and ensure we're
@@ -985,6 +984,7 @@ test('VmAgent works after initial errors', function _test(t) {
     var resolveAfter = 3;
     var vmAgent;
     var vmapiGetErr;
+    var vmapiPutErr;
 
     vasync.pipeline({arg: {}, funcs: [
         function _startVmAgent(arg, cb) {
@@ -995,32 +995,47 @@ test('VmAgent works after initial errors', function _test(t) {
             vmapiGetErr.syscall = 'connect';
             mocks.Vmapi.setGetError(vmapiGetErr);
 
+            vmapiPutErr = new Error('Workflow API is unavailable');
+            vmapiPutErr.code = 'ServiceUnavailableError';
+            vmapiPutErr.statusCode = 503;
+            vmapiPutErr.name = 'ServiceUnavailableError';
+            mocks.Vmapi.setPutError(vmapiPutErr);
+
             t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
             vmAgent = new VmAgent(config);
             vmAgent.start();
             cb();
         }, function _waitInitialUpdateVms(arg, cb) {
-            var seenAttempts = 0;
+            var seenGetAttempts = 0;
+            var seenPutAttempts = 0;
             // VmAgent should be initializing itself and it'll send the initial
             // GET /vms, which will fail. We'll allow it to fail resolveAfter
             // times and then remove the error. Then we should see the PUT /vms
-            // at which point we'll move on.
+            // at which point we'll fail that resolveAfter times and then move
+            // on.
 
-            coordinator.once('vmapi.updateServerVms',
-                function _onUpdateVms(vmobjs /* , server_uuid */) {
+            coordinator.on('vmapi.updateServerVms',
+                function _onUpdateVms(vmobjs, server_uuid, err) {
                     var keys = Object.keys(vmobjs);
 
-                    t.ok(true, 'saw PUT /vms: (' + keys.length + ')');
-                    cb();
+                    seenPutAttempts++;
+                    t.ok(true, 'saw PUT /vms: (' + keys.length + ') ['
+                        + seenPutAttempts + ']'
+                        + (err ? ' -- ' + err.code : ''));
+                    if (seenPutAttempts === resolveAfter) {
+                        mocks.Vmapi.setPutError(null);
+                        cb();
+                        return;
+                    }
                 }
             );
 
             coordinator.on('vmapi.getVms',
                 function _onVmapiGetVms(server_uuid, err) {
-                    seenAttempts++;
-                    t.ok(true, 'saw GET /vms [' + seenAttempts + ']'
+                    seenGetAttempts++;
+                    t.ok(true, 'saw GET /vms [' + seenGetAttempts + ']'
                         + (err ? ' -- ' + err.code : ''));
-                    if (seenAttempts >= resolveAfter) {
+                    if (seenGetAttempts >= resolveAfter) {
                         mocks.Vmapi.setGetError(null);
                     }
                 }
@@ -1068,6 +1083,35 @@ test('VmAgent works after initial errors', function _test(t) {
                 function _vmadmDeleteCb(err) {
                     t.ifError(err, 'delete VM: '
                         + (err ? err.message : 'success'));
+                }
+            );
+        }, function _checkZoneeventChildren(arg, cb) {
+            execFile('/usr/bin/ptree', [process.pid],
+                function _scanPtree(err, stdout /* , stderr */) {
+                    var zoneevent_children = [];
+
+                    if (!err) {
+                        stdout.split('\n').forEach(function _onLine(line) {
+                            var proc = line.trim().split(' ');
+
+                            if (proc[1]
+                                && proc[1] === '/usr/vm/sbin/zoneevent') {
+                                // track PIDs so we can kill them
+                                zoneevent_children.push(proc[0]);
+                            }
+                        });
+
+                        t.equal(zoneevent_children.length, 1,
+                            'should have one zoneevent child');
+
+                        if (zoneevent_children.length > 1) {
+                            zoneevent_children.forEach(function _killPid(pid) {
+                                t.ok(true, 'killing extra zoneevent ' + pid);
+                                process.kill(pid, 'SIGKILL');
+                            });
+                        }
+                    }
+                    cb(err);
                 }
             );
         }
