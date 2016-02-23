@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2016, Joyent, Inc.
  */
 
 var util = require('util');
@@ -43,7 +43,8 @@ var Logger = {
                 // VM doesn't exist, not really an error
                 return;
             }
-        } else if (err.stderr && err.stderr.match(/^ENOENT, open.*\.xml/)) {
+        } else if (err.stderr && (err.stderr.match(/^ENOENT, open.*\.xml/)
+            || (err.stderr.match(/unable to load \/etc\/zones\/.*.xml/)))) {
             // VM doesn't exist, not really an error
             return;
         }
@@ -247,7 +248,8 @@ function updateServerVms(server_uuid, vmobjs, callback) {
     assert.func(callback, 'callback');
 
     setImmediate(function _emitImmediately() {
-        coordinator.emit('vmapi.updateServerVms', vmobjs, server_uuid);
+        coordinator.emit('vmapi.updateServerVms', vmobjs, server_uuid,
+            (vmapiPutErr ? vmapiPutErr : null));
     });
     if (vmapiPutErr) {
         callback(vmapiPutErr);
