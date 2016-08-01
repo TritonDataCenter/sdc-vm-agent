@@ -26,8 +26,8 @@
 # Files
 #
 JS_FILES =
-JSL_CONF_NODE =
-JSL_FILES_NODE =
+JSL_CONF_NODE = tools/jsl.node.conf
+JSL_FILES_NODE = $(shell find bin/ lib/ -name *.js)
 JSSTYLE_FILES =
 JSSTYLE_FLAGS =
 
