@@ -5,21 +5,23 @@
 -->
 
 <!--
-    Copyright (c) 2015, Joyent, Inc.
+    Copyright (c) 2016, Joyent, Inc.
 -->
 
 
 # sdc-vm-agent
 
-The SDC VM agent is a library for keeping track of VM changes on an SDC data
-center. There is one VM agent installed per Compute Node. VM changes trigger
-updates on [VMAPI](https://github.com/joyent/sdc-vmapi) so data is persisted.
+This repository is part of the Joyent Triton project. See the [contribution
+guidelines](https://github.com/joyent/triton/blob/master/CONTRIBUTING.md) --
+*Triton does not use GitHub PRs* -- and general documentation at the main
+[Triton project](https://github.com/joyent/triton) page.
+
+The SDC VM agent is a library for keeping track of VM changes on Triton.
+There is one VM agent installed per Compute Node. VM changes trigger updates
+on [VMAPI](https://github.com/joyent/sdc-vmapi) so data is persisted.
 
 See the header of lib/vm-agent.js for more details on how vm-agent works.
 
-This repository is part of the Joyent SmartDataCenter project (SDC).  For
-contribution guidelines, issues, and general documentation, visit the main
-[SDC](http://github.com/joyent/sdc) project page.
 
 # Development
 
@@ -46,7 +48,7 @@ Typically sdc-vm-agent development is done by:
   See "Testing" below for running the test suite.
 
 
-## Testing
+# Testing
 
 To run the vm-agent tests, run the following from the GZ on an SDC node (HN or
 CN) with vm-agent installed:
