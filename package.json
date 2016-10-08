@@ -22,6 +22,7 @@
         "config-agent": ">=1.3.0"
     },
     "scripts": {
+        "preinstall": "npm/preinstall.sh",
         "postinstall": "npm/postinstall.sh",
         "postuninstall": "npm/postuninstall.sh"
     },

@@ -33,10 +33,10 @@ JSSTYLE_FLAGS =
 
 # Should be the same version as the platform's /usr/node/bin/node.
 NODE_PREBUILT_TAG =	gz
-NODE_PREBUILT_VERSION =	v0.12.9
+NODE_PREBUILT_VERSION =	v4.6.0
 ifeq ($(shell uname -s),SunOS)
 	# Allow building on a SmartOS image other than sdc-smartos/1.6.3.
-	NODE_PREBUILT_IMAGE =	fd2cc906-8938-11e3-beab-4359c665ac99
+	NODE_PREBUILT_IMAGE =	18b094b0-eb01-11e5-80c1-175dac7ddf02
 endif
 
 # Included definitions
