@@ -105,7 +105,8 @@ release: all deps docs $(SMF_MANIFESTS)
 	uuid -v4 > $(RELSTAGEDIR)/$(NAME)/image_uuid
 	mkdir -p $(RELSTAGEDIR)/$(NAME)/node/bin $(RELSTAGEDIR)/$(NAME)/node/lib
 	cp $(NODE_INSTALL)/bin/node $(RELSTAGEDIR)/$(NAME)/node/bin/
-	cp $(NODE_INSTALL)/lib/* $(RELSTAGEDIR)/$(NAME)/node/lib/
+	cp -RP $(NODE_INSTALL)/lib/* $(RELSTAGEDIR)/$(NAME)/node/lib/
+	rm -rf $(RELSTAGEDIR)/$(NAME)/node/lib/node_modules
 	cd $(RELSTAGEDIR) && $(TAR) -zcf $(TOP)/$(RELEASE_TARBALL) *
 	cat $(TOP)/manifest.tmpl | sed \
 	    -e "s/UUID/$$(cat $(RELSTAGEDIR)/$(NAME)/image_uuid)/" \
