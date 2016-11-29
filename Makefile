@@ -103,10 +103,12 @@ release: all deps docs $(SMF_MANIFESTS)
 	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/kthxbai \
 	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/kthxbai
 	uuid -v4 > $(RELSTAGEDIR)/$(NAME)/image_uuid
-	mkdir -p $(RELSTAGEDIR)/$(NAME)/node/bin $(RELSTAGEDIR)/$(NAME)/node/lib
-	cp $(NODE_INSTALL)/bin/node $(RELSTAGEDIR)/$(NAME)/node/bin/
-	cp -RP $(NODE_INSTALL)/lib/* $(RELSTAGEDIR)/$(NAME)/node/lib/
-	rm -rf $(RELSTAGEDIR)/$(NAME)/node/lib/node_modules
+	mkdir -p $(RELSTAGEDIR)/$(NAME)/node
+	cp -PR $(NODE_INSTALL)/* $(RELSTAGEDIR)/$(NAME)/node/
+	rm -rf $(RELSTAGEDIR)/$(NAME)/node/bin/npm \
+	    $(RELSTAGEDIR)/$(NAME)/node/include \
+	    $(RELSTAGEDIR)/$(NAME)/node/lib/node_modules \
+	    $(RELSTAGEDIR)/$(NAME)/node/share
 	cd $(RELSTAGEDIR) && $(TAR) -zcf $(TOP)/$(RELEASE_TARBALL) *
 	cat $(TOP)/manifest.tmpl | sed \
 	    -e "s/UUID/$$(cat $(RELSTAGEDIR)/$(NAME)/image_uuid)/" \
