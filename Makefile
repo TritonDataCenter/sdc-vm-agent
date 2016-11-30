@@ -33,7 +33,7 @@ JSSTYLE_FLAGS =
 
 # Should be the same version as the platform's /usr/node/bin/node.
 NODE_PREBUILT_TAG =	gz
-NODE_PREBUILT_VERSION =	v4.6.0
+NODE_PREBUILT_VERSION =	v4.6.1
 ifeq ($(shell uname -s),SunOS)
 	# Allow building on a SmartOS image other than sdc-smartos/1.6.3.
 	NODE_PREBUILT_IMAGE =	18b094b0-eb01-11e5-80c1-175dac7ddf02
@@ -103,8 +103,12 @@ release: all deps docs $(SMF_MANIFESTS)
 	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/kthxbai \
 	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/kthxbai
 	uuid -v4 > $(RELSTAGEDIR)/$(NAME)/image_uuid
-	mkdir -p $(RELSTAGEDIR)/$(NAME)/node/bin
-	cp $(NODE_INSTALL)/bin/node $(RELSTAGEDIR)/$(NAME)/node/bin/
+	mkdir -p $(RELSTAGEDIR)/$(NAME)/node
+	cp -PR $(NODE_INSTALL)/* $(RELSTAGEDIR)/$(NAME)/node/
+	rm -rf $(RELSTAGEDIR)/$(NAME)/node/bin/npm \
+	    $(RELSTAGEDIR)/$(NAME)/node/include \
+	    $(RELSTAGEDIR)/$(NAME)/node/lib/node_modules \
+	    $(RELSTAGEDIR)/$(NAME)/node/share
 	cd $(RELSTAGEDIR) && $(TAR) -zcf $(TOP)/$(RELEASE_TARBALL) *
 	cat $(TOP)/manifest.tmpl | sed \
 	    -e "s/UUID/$$(cat $(RELSTAGEDIR)/$(NAME)/image_uuid)/" \
