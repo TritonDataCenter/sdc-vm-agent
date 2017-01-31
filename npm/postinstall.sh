@@ -6,7 +6,7 @@
 #
 
 #
-# Copyright 2015 Joyent, Inc.
+# Copyright 2017 Joyent, Inc.
 #
 
 if [[ "${SDC_AGENT_SKIP_LIFECYCLE:-no}" = "yes" ]]; then
@@ -65,31 +65,31 @@ function subfile
 }
 
 #
-# Replace substitution tokens in the SMF method and manifest files, and then
+# Replace substitution tokens in the SMF manifest files, and then
 # import the SMF service.
 #
 function import_smf_manifest
 {
-    local method_in="$ROOT/smf/method/$AGENT.in"
-    local method_out="$ROOT/smf/method/$AGENT"
-    local manifest_in="$ROOT/smf/manifests/$AGENT.xml.in"
-    local manifest_out="$SMF_DIR/$AGENT.xml"
+    local manifest0_in="$ROOT/smf/manifests/$AGENT.xml.in"
+    local manifest0_out="$SMF_DIR/$AGENT.xml"
+    local manifest1_in="$ROOT/smf/manifests/$AGENT-setup.xml.in"
+    local manifest1_out="$SMF_DIR/$AGENT-setup.xml"
 
-    if [[ ! -f "${method_in}" ]]; then
-        fatal 'could not find smf method input file: %s' "${method_in}"
+    if [[ ! -f "${manifest0_in}" ]]; then
+        fatal 'could not find smf manifest input file: %s' "${manifest0_in}"
     fi
-    if [[ ! -f "${manifest_in}" ]]; then
-        fatal 'could not find smf manifest input file: %s' "${manifest_in}"
-    fi
-
-    if ! subfile "${method_in}" "${method_out}" ||
-      ! chmod +x "${method_out}"; then
-        fatal 'could not process smf method (%s)' "${method_in}"
+    if [[ ! -f "${manifest1_in}" ]]; then
+        fatal 'could not find smf manifest input file: %s' "${manifest1_in}"
     fi
 
-    if ! subfile "${manifest_in}" "${manifest_out}" ||
-      ! svccfg import "${manifest_out}"; then
-        fatal 'could not process smf manifest (%s)' "${manifest_in}"
+    if ! subfile "${manifest0_in}" "${manifest0_out}" ||
+      ! svccfg import "${manifest0_out}"; then
+        fatal 'could not process smf manifest (%s)' "${manifest0_in}"
+    fi
+
+    if ! subfile "${manifest1_in}" "${manifest1_out}" ||
+      ! svccfg import "${manifest1_out}"; then
+        fatal 'could not process smf manifest (%s)' "${manifest1_in}"
     fi
 }
 
