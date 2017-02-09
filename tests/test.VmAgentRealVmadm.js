@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2016, Joyent, Inc.
+ * Copyright 2017, Joyent, Inc.
  */
 
 var execFile = require('child_process').execFile;
@@ -1092,13 +1092,16 @@ test('VmAgent works after initial errors', function _test(t) {
 
                     if (!err) {
                         stdout.split('\n').forEach(function _onLine(line) {
-                            var proc = line.trim().split(' ');
+                            var proc = line.trim().match(/(\d+)\s+(.*)$/);
 
-                            if (proc[1]
-                                && proc[1] === '/usr/vm/sbin/zoneevent') {
+                            /* eslint-disable no-magic-numbers */
+                            if (proc && proc[2]
+                                && proc[2] === '/usr/vm/sbin/zoneevent') {
                                 // track PIDs so we can kill them
-                                zoneevent_children.push(proc[0]);
+                                zoneevent_children.push(proc[1]);
                             }
+
+                            /* eslint-enable no-magic-numbers */
                         });
 
                         t.equal(zoneevent_children.length, 1,
