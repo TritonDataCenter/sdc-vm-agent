@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 /*
@@ -117,8 +117,21 @@ test('Compare VMAPI VM to VMAPI_ALWAYS_SET_FIELDS', function _test(t) {
     t.end();
 });
 
+// ZAPI-782 broke DELETE, so we do a PUT here instead with
+//
+// vm.state = 'destroyed';
+// vm.zone_state = 'destroyed';
+// vm.destroyed = new Date().toString();
+//
+// which matches what VMAPI did until ZAPI-782.
 test('DELETE VM', function _test(t) {
     var opts = {path: '/vms/' + testVmUuid};
+    var vmobj = {
+        destroyed: new Date().toString(),
+        state: 'destroyed',
+        uuid: testVmUuid,
+        zone_state: 'destroyed'
+    };
 
     if (!vmapi) {
         t.fail('Missing vmapi handle, cannot continue');
@@ -126,8 +139,8 @@ test('DELETE VM', function _test(t) {
         return;
     }
 
-    vmapi.del(opts, function _delCb(err /* , req, res */) {
-        t.ifError(err, 'vmapi DELETE ' + testVmUuid);
+    vmapi.put(opts, vmobj, function _putVmCb(err /* , req, res */) {
+        t.ifError(err, 'vmapi PUT (to destroy) ' + testVmUuid);
         t.end();
     });
 });
