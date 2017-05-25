@@ -344,8 +344,12 @@ function fakeVmWatcher() {
 }
 util.inherits(fakeVmWatcher, EventEmitter);
 
-fakeVmWatcher.prototype.start = function start() {
+fakeVmWatcher.prototype.start = function start(cb) {
     // console.error('vmwatcher.start');
+    if (cb) {
+        cb();
+        return;
+    }
 };
 
 fakeVmWatcher.prototype.stop = function stop() {
