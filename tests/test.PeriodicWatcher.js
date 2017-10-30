@@ -19,8 +19,6 @@ var mocks = require('./mocks');
 var PeriodicWatcher = require('../lib/watchers/periodic-watcher');
 
 
-// How frequently to poll the 'events' array when we're waiting for an event.
-var EVENTS_POLL_FREQ = 100; // ms
 var PERIODIC_INTERVAL = 1000; // ms, faster than usual because tests
 
 var events = [];
@@ -29,37 +27,6 @@ var kvmVmUUID;
 var smartosImageUUID;
 var smartosVmUUID;
 var watcher;
-
-
-// Waits for event 'evt' to happen for vmUuid starting at eventIdx
-function waitEvent(t, evt, vmUuid, eventIdx) {
-    var loops = 0;
-
-    assert.string(evt, 'evt');
-    assert.uuid(vmUuid, 'vmUuid');
-    assert.number(eventIdx, 'eventIdx');
-
-    function _waitEvent() {
-        var i;
-
-        if (events.length > eventIdx) {
-            // we've had some new events, check for our create
-            for (i = eventIdx; i < events.length; i++) {
-                if (events[i].vmUuid === vmUuid && events[i].event === evt) {
-                    t.ok(true, 'PeriodicWatcher saw expected ' + evt
-                        + ' (' + (loops * EVENTS_POLL_FREQ) + ' ms)');
-                    t.end();
-                    return;
-                }
-            }
-        }
-
-        loops++;
-        setTimeout(_waitEvent, EVENTS_POLL_FREQ);
-    }
-
-    _waitEvent();
-}
 
 
 test('find SmartOS image', function _test(t) {
@@ -131,7 +98,7 @@ test('create VM', function _test(t) {
         if (!err && info) {
             t.ok(info.uuid, 'VM has uuid: ' + info.uuid);
             smartosVmUUID = info.uuid;
-            waitEvent(t, 'create', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'create', smartosVmUUID, events, eventIdx);
         } else {
             t.end();
         }
@@ -151,7 +118,7 @@ test('stop VM', function _test(t) {
             t.end();
         } else {
             // state should change
-            waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
         }
     });
 });
@@ -169,7 +136,7 @@ test('start VM', function _test(t) {
             t.end();
         } else {
             // state should change
-            waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
         }
     });
 });
@@ -183,7 +150,7 @@ test('modify quota using ZFS', function _test(t) {
             if (err) {
                 t.end();
             } else {
-                waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+                common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
             }
         }
     );
@@ -199,7 +166,7 @@ test('put metadata using mdata-put', function _test(t) {
             if (err) {
                 t.end();
             } else {
-                waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+                common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
             }
         }
     );
@@ -218,7 +185,7 @@ test('create snapshot', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
         }
     });
 });
@@ -236,7 +203,7 @@ test('delete snapshot', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
         }
     });
 });
@@ -258,7 +225,7 @@ test('set do_not_inventory', function _test(t) {
             // that's all we're testing here, we should see a modify. It's
             // VmAgent that should realize when it goes to update based on this
             // event that it should be ignored.
-            waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
         }
     });
 });
@@ -277,7 +244,7 @@ test('unset do_not_inventory', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
         }
     });
 });
@@ -294,7 +261,7 @@ test('reboot VM', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
         }
     });
 });
@@ -311,7 +278,7 @@ test('delete VM', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'delete', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'delete', smartosVmUUID, events, eventIdx);
         }
     });
 });
@@ -335,7 +302,7 @@ test('create KVM VM', function _test(t) {
         if (!err && info) {
             t.ok(info.uuid, 'VM has uuid: ' + info.uuid);
             kvmVmUUID = info.uuid;
-            waitEvent(t, 'create', kvmVmUUID, eventIdx);
+            common.waitEvent(t, 'create', kvmVmUUID, events, eventIdx);
         } else {
             t.end();
         }
@@ -355,7 +322,7 @@ test('add KVM VM disk', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'modify', kvmVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', kvmVmUUID, events, eventIdx);
         }
     });
 });
@@ -376,7 +343,7 @@ test('modify KVM VM disk', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'modify', kvmVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', kvmVmUUID, events, eventIdx);
         }
     });
 });
@@ -396,7 +363,7 @@ test('remove KVM VM disk', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'modify', kvmVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', kvmVmUUID, events, eventIdx);
         }
     });
 });
@@ -413,7 +380,7 @@ test('delete KVM VM', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'delete', kvmVmUUID, eventIdx);
+            common.waitEvent(t, 'delete', kvmVmUUID, events, eventIdx);
         }
     });
 });

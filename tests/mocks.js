@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2016, Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 var util = require('util');
@@ -215,6 +215,10 @@ fakeVmadm.getError = function getError() {
     return (vmadmErr);
 };
 
+fakeVmadm.events = function vmadmEvents(opts, handler, cb) {
+    cb(new Error('Not Implemented'));
+};
+
 
 /*
  * Fake VMAPI for testing
@@ -344,8 +348,12 @@ function fakeVmWatcher() {
 }
 util.inherits(fakeVmWatcher, EventEmitter);
 
-fakeVmWatcher.prototype.start = function start() {
+fakeVmWatcher.prototype.start = function start(cb) {
     // console.error('vmwatcher.start');
+    if (cb) {
+        cb();
+        return;
+    }
 };
 
 fakeVmWatcher.prototype.stop = function stop() {

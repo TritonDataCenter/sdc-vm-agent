@@ -18,41 +18,12 @@ var common = require('./common');
 var mocks = require('./mocks');
 var FsWatcher = require('../lib/watchers/fs-watcher');
 
-
-// How frequently to poll the 'events' array when we're waiting for an event.
-var EVENTS_POLL_FREQ = 100; // ms
-
 var events = [];
 var existingVms = [];
 var smartosImageUUID;
 var smartosVmUUID;
 var watcher;
 
-
-function waitEvent(t, evt, vmUuid, eventIdx) {
-    var loops = 0;
-
-    function _waitEvent() {
-        var i;
-
-        if (events.length > eventIdx) {
-            // we've had some new events, check for our create
-            for (i = eventIdx; i < events.length; i++) {
-                if (events[i].vmUuid === vmUuid && events[i].event === evt) {
-                    t.ok(true, 'FsWatcher saw expected ' + evt
-                        + ' (' + (loops * EVENTS_POLL_FREQ) + ' ms)');
-                    t.end();
-                    return;
-                }
-            }
-        }
-
-        loops++;
-        setTimeout(_waitEvent, EVENTS_POLL_FREQ);
-    }
-
-    _waitEvent();
-}
 
 test('find SmartOS image', function _test(t) {
     common.testFindSmartosImage(t, function _findSmartosCb(err, latest) {
@@ -126,7 +97,7 @@ test('create VM', function _test(t) {
         if (!err && info) {
             t.ok(info.uuid, 'VM has uuid: ' + info.uuid);
             smartosVmUUID = info.uuid;
-            waitEvent(t, 'create', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'create', smartosVmUUID, events, eventIdx);
         } else {
             t.end();
         }
@@ -143,7 +114,7 @@ test('put metadata using mdata-put', function _test(t) {
             if (err) {
                 t.end();
             } else {
-                waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+                common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
             }
         }
     );
@@ -161,7 +132,7 @@ test('delete VM', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'delete', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'delete', smartosVmUUID, events, eventIdx);
         }
     });
 });

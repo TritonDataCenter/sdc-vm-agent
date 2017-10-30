@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2014, Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 /*
@@ -14,9 +14,14 @@
 
 var execFile = require('child_process').execFile;
 
+var assert = require('assert-plus');
+
 // GLOBAL
 var BUFFER_SIZE = 32 * 1024 * 1024; // eslint-disable-line
 
+// How frequently to poll the 'events' array when we're waiting for an event
+// in waitEvent.
+var EVENTS_POLL_FREQ = 100; // ms
 
 function testFindSmartosImage(t, callback) {
     var args = ['list', '-H', '-j', '-o', 'uuid,tags', 'os=smartos'];
@@ -57,6 +62,35 @@ function testFindSmartosImage(t, callback) {
     });
 }
 
+function waitEvent(t, evtWant, vmUuid, events, eventIdx) {
+    var loops = 0;
+
+    assert(t, 't');
+    assert.string(evtWant, 'evtWant');
+    assert.uuid(vmUuid, 'vmUuid');
+    assert.arrayOfObject(events, 'events');
+    assert.number(eventIdx, 'eventIdx');
+
+    function _waitEvent() {
+        var found = events.slice(eventIdx).some(function _findEvent(ev) {
+            return (ev.vmUuid === vmUuid && ev.event === evtWant);
+        });
+
+        if (found) {
+            t.ok(true, 'Watcher saw expected ' + evtWant
+                + ' (' + (loops * EVENTS_POLL_FREQ) + ' ms)');
+            t.end();
+            return;
+        }
+
+        loops++;
+        setTimeout(_waitEvent, EVENTS_POLL_FREQ);
+    }
+
+    _waitEvent();
+}
+
 module.exports = {
-    testFindSmartosImage: testFindSmartosImage
+    testFindSmartosImage: testFindSmartosImage,
+    waitEvent: waitEvent
 };

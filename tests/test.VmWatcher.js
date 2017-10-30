@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 var execFile = require('child_process').execFile;
@@ -14,6 +14,7 @@ var test = require('tape');
 var vmadm = require('vmadm');
 
 var common = require('./common');
+var determineEventSource = require('../lib/event-source');
 var mocks = require('./mocks');
 var VmWatcher = require('../lib/vm-watcher');
 
@@ -21,40 +22,14 @@ var VmWatcher = require('../lib/vm-watcher');
 // For tests we can lower the frequency the periodic watcher polls so we finish
 // in more reasonable time.
 var PERIODIC_INTERVAL = 1000;
-// How frequently to poll the 'events' array when we're waiting for an event.
-var EVENTS_POLL_FREQ = 100; // ms
 
 var events = [];
 var existingVms = [];
+var eventSource;
 var smartosImageUUID;
 var smartosVmUUID;
 var watcher;
 
-
-function waitEvent(t, evt, vm_uuid, eventIdx) {
-    var loops = 0;
-
-    function _waitEvent() {
-        var i;
-
-        if (events.length > eventIdx) {
-            // we've had some new events, check for our create
-            for (i = eventIdx; i < events.length; i++) {
-                if (events[i].vm_uuid === vm_uuid && events[i].event === evt) {
-                    t.ok(true, 'VmWatcher saw expected ' + evt
-                        + ' (' + (loops * EVENTS_POLL_FREQ) + ' ms)');
-                    t.end();
-                    return;
-                }
-            }
-        }
-
-        loops++;
-        setTimeout(_waitEvent, EVENTS_POLL_FREQ);
-    }
-
-    _waitEvent();
-}
 
 test('find SmartOS image', function _test(t) {
     common.testFindSmartosImage(t, function _findSmartosCb(err, latest) {
@@ -84,35 +59,54 @@ test('load existing VMs', function _test(t) {
     });
 });
 
+test('determine best event source', function _test(t) {
+    var opts = {
+        log: mocks.Logger
+    };
+
+    determineEventSource(opts,
+        function determinedEventSource(err, _eventSource) {
+            t.ifError(err, 'determineEventSource err');
+
+            eventSource = _eventSource;
+            t.ok(eventSource,
+                'determineEventSource eventSource: ' + eventSource);
+
+            t.end();
+        }
+    );
+});
+
 test('starting VmWatcher', function _test(t) {
     watcher = new VmWatcher({
         log: mocks.Logger,
+        eventSource: eventSource,
         periodicInterval: PERIODIC_INTERVAL
     });
 
     t.ok(watcher, 'created VmWatcher');
 
-    function _onVmEvent(vm_uuid, name) {
+    function _onVmEvent(vmUuid, name) {
         // ignore events from VMs that existed when we started
-        if (existingVms.indexOf(vm_uuid) === -1) {
+        if (existingVms.indexOf(vmUuid) === -1) {
             events.push({
                 event: name,
                 timestamp: (new Date()).toISOString(),
-                vm_uuid: vm_uuid
+                vmUuid: vmUuid
             });
         }
     }
 
-    watcher.on('VmCreated', function _onCreate(vm_uuid, watcherName) {
-        _onVmEvent(vm_uuid, 'create', watcherName);
+    watcher.on('VmCreated', function _onCreate(vmUuid, watcherName) {
+        _onVmEvent(vmUuid, 'create', watcherName);
     });
 
-    watcher.on('VmModified', function _onModify(vm_uuid, watcherName) {
-        _onVmEvent(vm_uuid, 'modify', watcherName);
+    watcher.on('VmModified', function _onModify(vmUuid, watcherName) {
+        _onVmEvent(vmUuid, 'modify', watcherName);
     });
 
-    watcher.on('VmDeleted', function _onDelete(vm_uuid, watcherName) {
-        _onVmEvent(vm_uuid, 'delete', watcherName);
+    watcher.on('VmDeleted', function _onDelete(vmUuid, watcherName) {
+        _onVmEvent(vmUuid, 'delete', watcherName);
     });
 
     watcher.start();
@@ -136,7 +130,7 @@ test('create VM', function _test(t) {
         if (!err && info) {
             t.ok(info.uuid, 'VM has uuid: ' + info.uuid);
             smartosVmUUID = info.uuid;
-            waitEvent(t, 'create', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'create', smartosVmUUID, events, eventIdx);
         } else {
             t.end();
         }
@@ -156,7 +150,7 @@ test('stop VM', function _test(t) {
             t.end();
         } else {
             // state should change
-            waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
         }
     });
 });
@@ -174,7 +168,7 @@ test('start VM', function _test(t) {
             t.end();
         } else {
             // state should change
-            waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
         }
     });
 });
@@ -188,7 +182,7 @@ test('modify quota using ZFS', function _test(t) {
             if (err) {
                 t.end();
             } else {
-                waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+                common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
             }
         }
     );
@@ -204,7 +198,7 @@ test('put metadata using mdata-put', function _test(t) {
             if (err) {
                 t.end();
             } else {
-                waitEvent(t, 'modify', smartosVmUUID, eventIdx);
+                common.waitEvent(t, 'modify', smartosVmUUID, events, eventIdx);
             }
         }
     );
@@ -222,7 +216,7 @@ test('delete VM', function _test(t) {
         if (err) {
             t.end();
         } else {
-            waitEvent(t, 'delete', smartosVmUUID, eventIdx);
+            common.waitEvent(t, 'delete', smartosVmUUID, events, eventIdx);
         }
     });
 });
@@ -237,7 +231,7 @@ test('check SmartOS VM\'s events', function _test(t) {
     var evts = [];
 
     events.forEach(function _pushEvent(evt) {
-        if (evt.vm_uuid === smartosVmUUID) {
+        if (evt.vmUuid === smartosVmUUID) {
             evts.push(evt.event);
         }
     });

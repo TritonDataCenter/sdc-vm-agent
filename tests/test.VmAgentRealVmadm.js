@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright 2017, Joyent, Inc.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 var execFile = require('child_process').execFile;
@@ -678,11 +678,6 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
                 }
                 cb(err);
             });
-        }, function _startVmAgent(arg, cb) {
-            t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
-            vmAgent = new VmAgent(config);
-            vmAgent.start();
-            cb();
         }, function _waitInitialUpdateVms(arg, cb) {
             // Wait for VmAgent init and it'll send the initial PUT /vms, these
             // are real VMs on the node because we're not faking vmadm.
@@ -706,6 +701,11 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
                     cb();
                 }
             );
+
+            // start VmAgent
+            t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
+            vmAgent = new VmAgent(config);
+            vmAgent.start();
         }, function _removeDNI(arg, cb) {
             // when we remove the DNI flag, the VM should show up at VMAPI
             performThenWait(function _performRemoveDNI(next) {
@@ -885,11 +885,6 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
                 }
                 cb(err);
             });
-        }, function _startVmAgent(arg, cb) {
-            t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
-            vmAgent = new VmAgent(config);
-            vmAgent.start();
-            cb();
         }, function _waitInitialUpdateVms(arg, cb) {
             // Wait for VmAgent init and it'll send the initial PUT /vms, these
             // are real VMs on the node because we're not faking vmadm.
@@ -901,6 +896,10 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
                     cb();
                 }
             );
+
+            t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
+            vmAgent = new VmAgent(config);
+            vmAgent.start();
         }, function _createDoNotInventoryVm2(arg, cb) {
             // creating a VM with DNI should not result in an update.
             vmadm.create(payload2, function _vmadmCreateCb(err, info) {
@@ -987,7 +986,7 @@ test('VmAgent works after initial errors', function _test(t) {
     var vmapiPutErr;
 
     vasync.pipeline({arg: {}, funcs: [
-        function _startVmAgent(arg, cb) {
+        function _createSimulatedErrors(arg, cb) {
             // simulate connection refused
             vmapiGetErr = new Error('Connection Refused');
             vmapiGetErr.code = 'ECONNREFUSED';
@@ -1002,121 +1001,137 @@ test('VmAgent works after initial errors', function _test(t) {
             mocks.Vmapi.setPutError(vmapiPutErr);
 
             t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
-            vmAgent = new VmAgent(config);
-            vmAgent.start();
             cb();
         }, function _waitInitialUpdateVms(arg, cb) {
             var seenGetAttempts = 0;
             var seenPutAttempts = 0;
-            // VmAgent should be initializing itself and it'll send the initial
-            // GET /vms, which will fail. We'll allow it to fail resolveAfter
-            // times and then remove the error. Then we should see the PUT /vms
-            // at which point we'll fail that resolveAfter times and then move
-            // on.
 
-            coordinator.on('vmapi.updateServerVms',
-                function _onUpdateVms(vmobjs, server_uuid, err) {
-                    var keys = Object.keys(vmobjs);
+            /*
+             * VmAgent should be initializing itself and it'll send the initial
+             * GET /vms, which will fail. We'll allow it to fail resolveAfter
+             * times and then remove the error. Then we should see the PUT /vms
+             * at which point we'll fail that resolveAfter times and then move
+             * on.
+             *
+             * This logic is handled by a call to vasync.parallel, because
+             * starting the VmAgent instance itself calls a callback when it is
+             * ready.  On top of that, we don't want to consider this portion
+             * of the test finished until 1. the VmAgent instance is ready and
+             * 2. The seenPutAttempts matches resolveAfter.  Though it's not
+             * currently the case, in the future it is possible that
+             * VmAgent#start could fail and callback with an error, in which
+             * case we'd want to bail out of the test early.
+             */
+            vasync.parallel({funcs: [
+                function _vmapiUpdateServerVms(cb2) {
+                    coordinator.on('vmapi.updateServerVms',
+                        function _onUpdateVms(vmobjs, server_uuid, err) {
+                            var keys = Object.keys(vmobjs);
 
-                    seenPutAttempts++;
-                    t.ok(true, 'saw PUT /vms: (' + keys.length + ') ['
-                        + seenPutAttempts + ']'
-                        + (err ? ' -- ' + err.code : ''));
-                    if (seenPutAttempts === resolveAfter) {
-                        mocks.Vmapi.setPutError(null);
-                        cb();
-                        return;
-                    }
+                            seenPutAttempts++;
+                            t.ok(true, 'saw PUT /vms: (' + keys.length + ') ['
+                                + seenPutAttempts + ']'
+                                + (err ? ' -- ' + err.code : ''));
+
+                            if (seenPutAttempts === resolveAfter) {
+                                mocks.Vmapi.setPutError(null);
+                                cb2();
+                                return;
+                            }
+                        }
+                    );
+
+                    coordinator.on('vmapi.getVms',
+                        function _onVmapiGetVms(server_uuid, err) {
+                            seenGetAttempts++;
+                            t.ok(true, 'saw GET /vms [' + seenGetAttempts + ']'
+                                + (err ? ' -- ' + err.code : ''));
+
+                            if (seenGetAttempts >= resolveAfter) {
+                                mocks.Vmapi.setGetError(null);
+                            }
+                        }
+                    );
+                }, function _startVmAgent(cb2) {
+                    vmAgent = new VmAgent(config);
+                    vmAgent.start(cb2);
                 }
-            );
-
-            coordinator.on('vmapi.getVms',
-                function _onVmapiGetVms(server_uuid, err) {
-                    seenGetAttempts++;
-                    t.ok(true, 'saw GET /vms [' + seenGetAttempts + ']'
-                        + (err ? ' -- ' + err.code : ''));
-                    if (seenGetAttempts >= resolveAfter) {
-                        mocks.Vmapi.setGetError(null);
-                    }
-                }
-            );
+            ]}, cb);
         }, function _createVm(arg, cb) {
             // now that init is complete, create a VM and make sure we see an
             // update.
 
             payload.log = config.log;
 
-            coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj) {
-                if (vmobj.uuid !== payload.uuid) {
-                    // ignore changes that are from other VMs on this system
-                    return;
-                }
-                coordinator.removeAllListeners('vmapi.updateVm');
-                t.ok(true, 'VMAPI saw update for new VM.');
-                cb();
-            });
-
-            vmadm.create(payload, function _vmadmCreateCb(err, info) {
-                t.ifError(err, 'create VM');
-                if (!err && info) {
-                    t.equal(info.uuid, payload.uuid, 'new VM has uuid: '
-                        + info.uuid);
-                }
-            });
-        }, function _deleteVm(arg, cb) {
-            coordinator.on('vmapi.updateVm', function _onVmapiUpdateVm(vmobj) {
-                if (vmobj.uuid !== payload.uuid) {
-                    // ignore changes that are from other VMs on this system
-                    return;
-                }
-                if (vmobj.state === 'destroyed'
-                    && vmobj.zone_state === 'destroyed') {
-                    // when we see destroyed, we'll move on
-                    t.ok(true, 'VMAPI saw destroy for VM');
-                    coordinator.removeAllListeners('vmapi.updateVm');
-                    cb();
-                    return;
-                }
-            });
-
-            vmadm.delete({log: config.log, uuid: payload.uuid},
-                function _vmadmDeleteCb(err) {
-                    t.ifError(err, 'delete VM: '
-                        + (err ? err.message : 'success'));
-                }
-            );
-        }, function _checkZoneeventChildren(arg, cb) {
-            execFile('/usr/bin/ptree', [process.pid],
-                function _scanPtree(err, stdout /* , stderr */) {
-                    var zoneevent_children = [];
-
-                    if (!err) {
-                        stdout.split('\n').forEach(function _onLine(line) {
-                            var proc = line.trim().match(/(\d+)\s+(.*)$/);
-
-                            /* eslint-disable no-magic-numbers */
-                            if (proc && proc[2]
-                                && proc[2] === '/usr/vm/sbin/zoneevent') {
-                                // track PIDs so we can kill them
-                                zoneevent_children.push(proc[1]);
+            /*
+             * Like above, we use vasync.parallel to ensure the test does not
+             * move on until `vmadm.create` is successful as well as the
+             * vmapi.updateVm event being seen for the new VM.  Because the
+             * event is typically  seen before `vmadm.create` finishes, it was
+             * possible (before vasync.parallel) for the test to print somewhat
+             * out-of-order results, resulting in the 'new VM has uuid: <uuid>'
+             * line appearing way lower than expected.
+             */
+            vasync.parallel({funcs: [
+                function _vmapiUpdateVmListener(cb2) {
+                    coordinator.on('vmapi.updateVm',
+                        function _onVmapiUpdateVm(vmobj) {
+                            if (vmobj.uuid !== payload.uuid) {
+                                // ignore changes that are from other VMs on
+                                // this system
+                                return;
                             }
-
-                            /* eslint-enable no-magic-numbers */
-                        });
-
-                        t.equal(zoneevent_children.length, 1,
-                            'should have one zoneevent child');
-
-                        if (zoneevent_children.length > 1) {
-                            zoneevent_children.forEach(function _killPid(pid) {
-                                t.ok(true, 'killing extra zoneevent ' + pid);
-                                process.kill(pid, 'SIGKILL');
-                            });
+                            coordinator.removeAllListeners('vmapi.updateVm');
+                            t.ok(true, 'VMAPI saw update for new VM.');
+                            cb2();
                         }
-                    }
-                    cb(err);
+                    );
+                }, function _vmadmCreate(cb2) {
+                    vmadm.create(payload, function _vmadmCreateCb(err, info) {
+                        t.ifError(err, 'create VM');
+                        if (!err && info) {
+                            t.equal(info.uuid, payload.uuid, 'new VM has uuid: '
+                                + info.uuid);
+                        }
+                        cb2();
+                    });
                 }
-            );
+            ]}, cb);
+        }, function _deleteVm(arg, cb) {
+            /*
+             * Same logic applies for `vmadm.delete` as `vmadm.create` above
+             * re: vasync.parallel.
+             */
+            vasync.parallel({funcs: [
+                function _vmapiUpdateVmListener(cb2) {
+                    coordinator.on('vmapi.updateVm',
+                        function _onVmapiUpdateVm(vmobj) {
+                            if (vmobj.uuid !== payload.uuid) {
+                                // ignore changes that are from other VMs on
+                                // this system
+                                return;
+                            }
+                            if (vmobj.state === 'destroyed'
+                                && vmobj.zone_state === 'destroyed') {
+                                // when we see destroyed, we'll move on
+                                t.ok(true, 'VMAPI saw destroy for VM');
+                                coordinator.removeAllListeners(
+                                    'vmapi.updateVm');
+                                cb2();
+                                return;
+                            }
+                        }
+                    );
+                }, function _vmadmDelete(cb2) {
+                    vmadm.delete({log: config.log, uuid: payload.uuid},
+                        function _vmadmDeleteCb(err) {
+                            t.ifError(err, 'delete VM: '
+                                + (err ? err.message : 'success'));
+                            cb2();
+                        }
+                    );
+                }
+            ]}, cb);
         }
     ]}, function _pipelineComplete(err) {
         t.ifError(err, 'pipeline complete');
