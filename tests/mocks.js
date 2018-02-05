@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var util = require('util');
@@ -363,6 +363,21 @@ fakeVmWatcher.prototype.stop = function stop() {
 fakeVmWatcher.WATCHED_FIELDS = VmWatcher.WATCHED_FIELDS;
 
 
+function fakeBackend(opts) {
+    var self = this;
+
+    self.config = opts.config;
+    self.log = opts.log;
+    self.name = 'fakeBackend';
+}
+
+fakeBackend.prototype.loadConfig = function loadConfig(callback) {
+    var self = this;
+
+    callback(null, self.config);
+};
+
+
 // Anything tests should do between runs to cleanup should go in resetState().
 function resetState() {
     coordinator.removeAllListeners();
@@ -374,6 +389,7 @@ function resetState() {
 }
 
 module.exports = {
+    backend: fakeBackend,
     coordinator: coordinator,
     Logger: Logger,
     resetState: resetState,

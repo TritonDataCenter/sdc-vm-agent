@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var assert = require('assert-plus');
@@ -59,11 +59,17 @@ function createVm(template, properties) {
 }
 
 function newConfig() {
-    var config = {
-        log: mocks.Logger,
-        server_uuid: node_uuid.v4(),
-        vmapi_url: 'http://127.0.0.1/'
-    };
+    var config = {};
+
+    config.log = mocks.Logger;
+    config.server_uuid = node_uuid.v4();
+    config.backend = new mocks.backend({
+        config: {
+            server_uuid: config.server_uuid,
+            vmapi_url: 'http://127.0.0.1/'
+        },
+        log: config.log
+    });
 
     return (config);
 }
