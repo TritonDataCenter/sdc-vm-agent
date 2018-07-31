@@ -10,6 +10,7 @@
         "cueball": "2.1.1",
         "deep-diff": "0.3.3",
         "eslint": "2.13.1",
+        "jsprim": "2.0.0",
         "kthxbai": "0.4.0",
         "lstream": "0.0.4",
         "mockery": "1.4.0",
