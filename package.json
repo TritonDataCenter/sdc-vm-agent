@@ -20,6 +20,10 @@
         "vasync": "1.6.3",
         "vmadm": "1.1.0"
     },
+    "devDependencies": {
+        "eslint": "4.19.1",
+        "eslint-plugin-joyent": "~2.0.0"
+    },
     "sdcDependencies": {
         "config-agent": ">=1.3.0"
     },

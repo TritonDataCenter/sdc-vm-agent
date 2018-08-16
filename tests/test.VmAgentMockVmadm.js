@@ -205,7 +205,7 @@ function _test(t) {
     // 1. When VmAgent is doing its initialization, it does a vmadm.lookup for
     // all VMs on the CN, when we see that we add our first VM. That VM will be
     // processed we'll see vmapi.updateVm and move to stage 2.
-    coordinator.on('vmadm.lookup', function _onVmadmLookup(search, opts) {
+    coordinator.on('vmadm.lookup', function _onVmadmLookup(_search, opts) {
         t.ok(!opts.fields, 'vmadm.lookup should not have "fields"');
         if (!opts.fields) {
             // initial lookup, ready to pretend some changes

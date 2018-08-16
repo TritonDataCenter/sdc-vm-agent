@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var execFile = require('child_process').execFile;
@@ -114,9 +114,9 @@ function waitForUpdate(startIdx, params, cb) {
         diffObj = diff(params, cmpObj);
         if (diffObj) {
             filteredDiff = diffObj.filter(function _removeNotDiffs(_diff) {
-                if (typeof (_diff.lhs) === 'string' && _diff.rhs
-                    && _diff.lhs[0] === '!'
-                    && _diff.lhs.slice(1) !== _diff.rhs.toString()) {
+                if (typeof (_diff.lhs) === 'string' && _diff.rhs &&
+                    _diff.lhs[0] === '!' &&
+                    _diff.lhs.slice(1) !== _diff.rhs.toString()) {
                     // This matches the negation
                     return (false);
                 }
@@ -244,7 +244,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
             var newAlias = payload.alias + '-HACKED';
 
             _setVmadmProperty(vmUuid, 'alias', newAlias, cb);
-        }, function _stopVm(vmUuid, cb) {
+        }, function _stopVm(_vmUuid, cb) {
             var opts = {
                 log: config.log,
                 uuid: payload.uuid
@@ -254,7 +254,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
                 t.ifError(err, 'stop VM');
                 cb(err, {state: 'stopped', zone_state: 'installed'});
             });
-        }, function _startVm(vmUuid, cb) {
+        }, function _startVm(_vmUuid, cb) {
             var opts = {
                 log: config.log,
                 uuid: payload.uuid
@@ -264,7 +264,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
                 t.ifError(err, 'start VM');
                 cb(err, {state: 'running', zone_state: 'running'});
             });
-        }, function _rebootVm(vmUuid, cb) {
+        }, function _rebootVm(_vmUuid, cb) {
             var opts = {
                 force: true, // force reboot, since soft-reboot is unreliable
                 log: config.log,
@@ -283,7 +283,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
                     pid: '!' + prevPid
                 });
             });
-        }, function _snapshotVm(vmUuid, cb) {
+        }, function _snapshotVm(_vmUuid, cb) {
             var opts = {
                 log: config.log,
                 snapshot_name: 'snappy',
@@ -297,7 +297,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
                     snapshots: [{name: 'snappy'}]
                 });
             });
-        }, function _rollbackVm(vmUuid, cb) {
+        }, function _rollbackVm(_vmUuid, cb) {
             var lastIdx = updates.length - 1;
             var opts = {
                 log: config.log,
@@ -316,7 +316,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
                     snapshots: [{name: 'snappy'}]
                 });
             });
-        }, function _deleteSnapshot(vmUuid, cb) {
+        }, function _deleteSnapshot(_vmUuid, cb) {
             var opts = {
                 log: config.log,
                 snapshot_name: 'snappy',
@@ -334,7 +334,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
     ];
 
     vasync.pipeline({arg: {}, funcs: [
-        function _waitInitialUpdateVms(arg, cb) {
+        function _waitInitialUpdateVms(_, cb) {
             // Wait for VmAgent init and it'll send the initial PUT /vms, these
             // are real VMs on the node because we're not faking vmadm.
             coordinator.once('vmapi.updateServerVms',
@@ -349,7 +349,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
 
                 cb();
             });
-        }, function _createVm(arg, cb) {
+        }, function _createVm(_, cb) {
             // Create a VM then wait for the PUT /vm that includes it
             smartosVmUUID = payload.uuid;
             performThenWait(function _performCreate(next) {
@@ -365,7 +365,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
                     });
                 });
             }, cb);
-        }, function _applyModifiers(arg, cb) {
+        }, function _applyModifiers(_, cb) {
             var vmUuid = smartosVmUUID;
 
             function _applyModifier(modFn, _cb) {
@@ -385,7 +385,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
                 t.ifError(err, 'applied modifiers');
                 cb(err);
             });
-        }, function _destroyVm(arg, cb) {
+        }, function _destroyVm(_, cb) {
             //  With all modifications complete, we now delete the VM which
             //  should result in one more updateVm with 'destroyed'.
 
@@ -446,7 +446,7 @@ test('Real vmadm, fake VMAPI: 1 invalid VM', function _test(t) {
     var waitForUpdatesAfterFixing = 95000; // max delay is 30s, so catch 3+
 
     vasync.pipeline({arg: {}, funcs: [
-        function _waitInitialUpdateVms(arg, cb) {
+        function _waitInitialUpdateVms(_, cb) {
             // Wait for VmAgent init and it'll send the initial PUT /vms, these
             // are real VMs on the node because we're not faking vmadm.
             coordinator.once('vmapi.updateServerVms',
@@ -461,7 +461,7 @@ test('Real vmadm, fake VMAPI: 1 invalid VM', function _test(t) {
 
                 cb();
             });
-        }, function _createBrokenVm(arg, cb) {
+        }, function _createBrokenVm(_, cb) {
             // Create a VM then wait for the PUT /vm that includes it (which
             // should fail)
             var thisPayload = JSON.parse(JSON.stringify(payload));
@@ -492,7 +492,7 @@ test('Real vmadm, fake VMAPI: 1 invalid VM', function _test(t) {
                     });
                 });
             }, cb);
-        }, function _createOtherVms(arg, cb) {
+        }, function _createOtherVms(_, cb) {
             var uuids = [];
 
             function _createOneVm(uuid, _createOneCb) {
@@ -527,7 +527,7 @@ test('Real vmadm, fake VMAPI: 1 invalid VM', function _test(t) {
 
             // create those VMs
             vasync.forEachPipeline({inputs: uuids, func: _createOneVm}, cb);
-        }, function _checkVmapiForBrokenVm(arg, cb) {
+        }, function _checkVmapiForBrokenVm(_, cb) {
             var foundBroken = 0;
             var foundNonBroken = 0;
             var vmapiVms = mocks.Vmapi.peekVms();
@@ -545,7 +545,7 @@ test('Real vmadm, fake VMAPI: 1 invalid VM', function _test(t) {
                 'all non-broken VMs should be in VMAPI');
 
             cb();
-        }, function _checkBrokenRetrying(arg, cb) {
+        }, function _checkBrokenRetrying(_, cb) {
             var updateIdx = updates.length;
 
             setTimeout(function _afterWaitingForUpdates() {
@@ -569,7 +569,7 @@ test('Real vmadm, fake VMAPI: 1 invalid VM', function _test(t) {
                     + oldBrokenUpdates);
                 cb();
             }, waitForUpdatesAfterFixing);
-        }, function _clearProblem(arg, cb) {
+        }, function _clearProblem(_, cb) {
             // Tell fake VMAPI that this VM is no longer a problem, then wait
             // for it to get an update and have this VM.
             performThenWait(function _performClearProblem(next) {
@@ -594,7 +594,7 @@ test('Real vmadm, fake VMAPI: 1 invalid VM', function _test(t) {
                     + ' was cleared');
                 cb();
             });
-        }, function _destroyVms(arg, cb) {
+        }, function _destroyVms(_, cb) {
             //  With all modifications complete, we now delete the VM which
             //  should result in one more updateVm with 'destroyed'.
 
@@ -670,7 +670,7 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
     payload.log = config.log;
 
     vasync.pipeline({arg: {}, funcs: [
-        function _createDoNotInventoryVm(arg, cb) {
+        function _createDoNotInventoryVm(_, cb) {
             vmadm.create(payload, function _vmadmCreateCb(err, info) {
                 t.ifError(err, 'create DNI VM');
                 if (!err && info) {
@@ -678,7 +678,7 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
                 }
                 cb(err);
             });
-        }, function _waitInitialUpdateVms(arg, cb) {
+        }, function _waitInitialUpdateVms(_, cb) {
             // Wait for VmAgent init and it'll send the initial PUT /vms, these
             // are real VMs on the node because we're not faking vmadm.
             // We also ensure that the VM we created that has do_not_inventory
@@ -706,7 +706,7 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
             t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
             vmAgent = new VmAgent(config);
             vmAgent.start();
-        }, function _removeDNI(arg, cb) {
+        }, function _removeDNI(_, cb) {
             // when we remove the DNI flag, the VM should show up at VMAPI
             performThenWait(function _performRemoveDNI(next) {
                 var updatePayload = {
@@ -726,7 +726,7 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
                     });
                 });
             }, cb);
-        }, function reAddDNI(arg, cb) {
+        }, function reAddDNI(_, cb) {
             // add the DNI again, this will update last_modified but we should
             // not see that at VMAPI. We also update the alias so we can check
             // that later when we finally do get an update through.
@@ -748,7 +748,7 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
                     }
                 );
             });
-        }, function stopDNI(arg, cb) {
+        }, function stopDNI(_, cb) {
             // stop the VM, since DNI is still set, nothing should come through
             var stopPayload = {
                 include_dni: true,
@@ -767,7 +767,7 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
                     }
                 );
             });
-        }, function startDNI(arg, cb) {
+        }, function startDNI(_, cb) {
             // start the VM, since DNI is still set, nothing should come through
             var startPayload = {
                 include_dni: true,
@@ -786,7 +786,7 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
                     }
                 );
             });
-        }, function _removeDNIAgain(arg, cb) {
+        }, function _removeDNIAgain(_, cb) {
             // when we remove the DNI flag, the VM should show up at VMAPI
             performThenWait(function _performRemoveDNI(next) {
                 var updatePayload = {
@@ -806,7 +806,7 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
                     });
                 });
             }, cb);
-        }, function _destroyVm(arg, cb) {
+        }, function _destroyVm(_, cb) {
             //  With all modifications complete, we now delete the VM which
             //  should result in one more updateVm with 'destroyed'.
             performThenWait(function _performDelete(next) {
@@ -875,7 +875,7 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
     payload2.log = config.log;
 
     vasync.pipeline({arg: {}, funcs: [
-        function _createDoNotInventoryVm1(arg, cb) {
+        function _createDoNotInventoryVm1(_, cb) {
             // creating a VM with DNI should not result in it being in the
             // initial update.
             vmadm.create(payload1, function _vmadmCreateCb(err, info) {
@@ -885,7 +885,7 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
                 }
                 cb(err);
             });
-        }, function _waitInitialUpdateVms(arg, cb) {
+        }, function _waitInitialUpdateVms(_, cb) {
             // Wait for VmAgent init and it'll send the initial PUT /vms, these
             // are real VMs on the node because we're not faking vmadm.
             coordinator.once('vmapi.updateServerVms',
@@ -900,7 +900,7 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
             t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
             vmAgent = new VmAgent(config);
             vmAgent.start();
-        }, function _createDoNotInventoryVm2(arg, cb) {
+        }, function _createDoNotInventoryVm2(_, cb) {
             // creating a VM with DNI should not result in an update.
             vmadm.create(payload2, function _vmadmCreateCb(err, info) {
                 t.ifError(err, 'create DNI VM2');
@@ -909,7 +909,7 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
                 }
                 cb(err);
             });
-        }, function _destroyVm1(arg, cb) {
+        }, function _destroyVm1(_, cb) {
             //  With all modifications complete, we now delete the VM
             vmadm.delete({
                 include_dni: true,
@@ -920,7 +920,7 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
                     + (err ? err.message : 'success'));
                 cb(err);
             });
-        }, function _destroyVm2(arg, cb) {
+        }, function _destroyVm2(_, cb) {
             //  With all modifications complete, we now delete the VM
             vmadm.delete({
                 include_dni: true,
@@ -931,12 +931,12 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
                     + (err ? err.message : 'success'));
                 cb(err);
             });
-        }, function _waitDestroyVm(arg, cb) {
+        }, function _waitDestroyVm(_, cb) {
             setTimeout(function _waitedDestroyVm() {
                 t.ok(true, 'waited ' + WAIT_DNI_DELETE_MS + ' ms after delete');
                 cb();
             }, WAIT_DNI_DELETE_MS);
-        }, function _checkUpdates(arg, cb) {
+        }, function _checkUpdates(_, cb) {
             var badUpdates = 0;
 
             updates.forEach(function _checkUpdate(vm) {
@@ -986,7 +986,7 @@ test('VmAgent works after initial errors', function _test(t) {
     var vmapiPutErr;
 
     vasync.pipeline({arg: {}, funcs: [
-        function _createSimulatedErrors(arg, cb) {
+        function _createSimulatedErrors(_, cb) {
             // simulate connection refused
             vmapiGetErr = new Error('Connection Refused');
             vmapiGetErr.code = 'ECONNREFUSED';
@@ -1002,7 +1002,7 @@ test('VmAgent works after initial errors', function _test(t) {
 
             t.ok(config.server_uuid, 'new CN ' + config.server_uuid);
             cb();
-        }, function _waitInitialUpdateVms(arg, cb) {
+        }, function _waitInitialUpdateVms(_, cb) {
             var seenGetAttempts = 0;
             var seenPutAttempts = 0;
 
@@ -1025,7 +1025,7 @@ test('VmAgent works after initial errors', function _test(t) {
             vasync.parallel({funcs: [
                 function _vmapiUpdateServerVms(cb2) {
                     coordinator.on('vmapi.updateServerVms',
-                        function _onUpdateVms(vmobjs, server_uuid, err) {
+                        function _onUpdateVms(vmobjs, _server_uuid, err) {
                             var keys = Object.keys(vmobjs);
 
                             seenPutAttempts++;
@@ -1042,7 +1042,7 @@ test('VmAgent works after initial errors', function _test(t) {
                     );
 
                     coordinator.on('vmapi.getVms',
-                        function _onVmapiGetVms(server_uuid, err) {
+                        function _onVmapiGetVms(_server_uuid, err) {
                             seenGetAttempts++;
                             t.ok(true, 'saw GET /vms [' + seenGetAttempts + ']'
                                 + (err ? ' -- ' + err.code : ''));
@@ -1057,7 +1057,7 @@ test('VmAgent works after initial errors', function _test(t) {
                     vmAgent.start(cb2);
                 }
             ]}, cb);
-        }, function _createVm(arg, cb) {
+        }, function _createVm(_, cb) {
             // now that init is complete, create a VM and make sure we see an
             // update.
 
@@ -1097,7 +1097,7 @@ test('VmAgent works after initial errors', function _test(t) {
                     });
                 }
             ]}, cb);
-        }, function _deleteVm(arg, cb) {
+        }, function _deleteVm(_, cb) {
             /*
              * Same logic applies for `vmadm.delete` as `vmadm.create` above
              * re: vasync.parallel.
@@ -1111,8 +1111,8 @@ test('VmAgent works after initial errors', function _test(t) {
                                 // this system
                                 return;
                             }
-                            if (vmobj.state === 'destroyed'
-                                && vmobj.zone_state === 'destroyed') {
+                            if (vmobj.state === 'destroyed' &&
+                                vmobj.zone_state === 'destroyed') {
                                 // when we see destroyed, we'll move on
                                 t.ok(true, 'VMAPI saw destroy for VM');
                                 coordinator.removeAllListeners(

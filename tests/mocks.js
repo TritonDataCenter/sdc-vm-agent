@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var util = require('util');
@@ -43,8 +43,8 @@ var Logger = {
                 // VM doesn't exist, not really an error
                 return;
             }
-        } else if (err.stderr && (err.stderr.match(/^ENOENT, open.*\.xml/)
-            || (err.stderr.match(/unable to load \/etc\/zones\/.*.xml/)))) {
+        } else if (err.stderr && (err.stderr.match(/^ENOENT, open.*\.xml/) ||
+            (err.stderr.match(/unable to load \/etc\/zones\/.*.xml/)))) {
             // VM doesn't exist, not really an error
             return;
         }
@@ -215,7 +215,7 @@ fakeVmadm.getError = function getError() {
     return (vmadmErr);
 };
 
-fakeVmadm.events = function vmadmEvents(opts, handler, cb) {
+fakeVmadm.events = function vmadmEvents(_opts, _handler, cb) {
     cb(new Error('Not Implemented'));
 };
 

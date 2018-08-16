@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -103,8 +103,8 @@ test('Compare VMAPI VM to VMAPI_ALWAYS_SET_FIELDS', function _test(t) {
     var comparableVmobj = {};
 
     Object.keys(testVmobj).forEach(function _attemptAddCompareField(field) {
-        if (VMADM_ALWAYS_SET_FIELDS.hasOwnProperty(field)
-            && !diff(VMADM_ALWAYS_SET_FIELDS[field], testVmobj[field])) {
+        if (VMADM_ALWAYS_SET_FIELDS.hasOwnProperty(field) &&
+            !diff(VMADM_ALWAYS_SET_FIELDS[field], testVmobj[field])) {
             // remove fields that are also always set in vmadm
             return;
         }

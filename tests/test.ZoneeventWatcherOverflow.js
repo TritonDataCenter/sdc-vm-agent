@@ -68,7 +68,7 @@ function main() {
     });
 
     test('starting ZoneeventWatcher', function _test(t) {
-        function _onVmUpdate(vmUuid, updateType, updateObj) {
+        function _onVmUpdate(vmUuid, _updateType, updateObj) {
             if (!vmEvents.hasOwnProperty(vmUuid)) {
                 vmEvents[vmUuid] = {start: 0, stop: 0, other: 0};
             }
