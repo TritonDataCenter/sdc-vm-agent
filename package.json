@@ -18,7 +18,7 @@
         "restify-clients": "1.6.0",
         "tape": "4.2.2",
         "vasync": "1.6.3",
-        "vmadm": "1.1.0"
+        "vmadm": "1.2.0"
     },
     "devDependencies": {
         "eslint": "4.19.1",
