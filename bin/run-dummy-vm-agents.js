@@ -8,7 +8,6 @@
  * Copyright (c) 2018, Joyent, Inc.
  */
 /* eslint no-console: 0 */  // --> OFF
-/* eslint no-console: 0 */  // --> OFF
 'use strict';
 
 const child_process = require('child_process');
@@ -106,7 +105,7 @@ function main() {
     const sdcDcName = mdataGetSync('sdc:datacenter_name');
     const dnsDomain = mdataGetSync('dnsDomain');
 
-    console.log(`found sdc:datacenter_name=${sdcDcName} dnsDomain=${dnsDomain}`);
+    console.log(`sdc:datacenter_name=${sdcDcName} dnsDomain=${dnsDomain}`);
 
     vasync.forEachPipeline({
         func: runAgent,
