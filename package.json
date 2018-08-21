@@ -1,7 +1,7 @@
 {
     "name": "vm-agent",
     "description": "SmartDC Node VM Agent",
-    "version": "1.7.1",
+    "version": "1.7.2",
     "author": "Joyent (joyent.com)",
     "private": true,
     "dependencies": {
@@ -15,7 +15,7 @@
         "lstream": "0.0.4",
         "mockery": "1.4.0",
         "node-uuid": "1.4.7",
-        "restify-clients": "1.1.1",
+        "restify-clients": "1.6.0",
         "tape": "4.2.2",
         "vasync": "1.6.3",
         "vmadm": "1.1.0"
