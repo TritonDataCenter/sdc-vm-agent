@@ -17,9 +17,9 @@ const util = require('util');
 
 const assert = require('assert-plus');
 const bunyan = require('bunyan');
+const DummyVmadm = require('vmadm/lib/index.dummy_vminfod');
 const vasync = require('vasync');
 
-const DummyVmadm = require('vmadm/lib/index.dummy_vminfod');
 const VmAgent = require('../lib');
 
 
