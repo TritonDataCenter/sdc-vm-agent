@@ -7,6 +7,7 @@
 /*
  * Copyright (c) 2018, Joyent, Inc.
  */
+/* eslint no-console: 0 */  // --> OFF
 'use strict';
 
 const child_process = require('child_process');
@@ -14,9 +15,9 @@ const fs = require('fs');
 const path = require('path');
 const util = require('util');
 
-var assert = require('assert-plus');
-const DummyVmadm = require('vmadm/lib/index.dummy');
+const assert = require('assert-plus');
 const bunyan = require('bunyan');
+const DummyVmadm = require('vmadm/lib/index.dummy_vminfod');
 const vasync = require('vasync');
 
 const VmAgent = require('../lib');
@@ -37,6 +38,7 @@ function mockCloudRoot() {
     } catch (err) {
         // The old default for backward compatibility.
         const oldDefault = '/opt/custom/virtual';
+
         console.warn('warning: dummy backend could not get '
                      + '"mockcloudRoot" dir from mdata, using default %s: %s',
                      oldDefault, err);
@@ -84,21 +86,25 @@ function runAgent(opts, cb) {
 
     console.log(`config skeletop for agent ${opts.serverUuid}`,
                util.inspect(config, {depth: null}));
+
     config.vmadm = new DummyVmadm({serverUuid: opts.serverUuid,
                                    serverRoot: SERVER_ROOT, log: log});
     config.log = log;
 
     const vmagent = new VmAgent(config);
+
     vmagent.start(cb);
 }
 
 
 function main() {
     const dirs = fs.readdirSync(SERVER_ROOT);
+
     console.log('server uuids:', dirs);
 
     const sdcDcName = mdataGetSync('sdc:datacenter_name');
     const dnsDomain = mdataGetSync('dnsDomain');
+
     console.log(`sdc:datacenter_name=${sdcDcName} dnsDomain=${dnsDomain}`);
 
     vasync.forEachPipeline({
