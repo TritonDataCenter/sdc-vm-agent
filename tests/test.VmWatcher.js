@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var execFile = require('child_process').execFile;
@@ -61,7 +61,8 @@ test('load existing VMs', function _test(t) {
 
 test('determine best event source', function _test(t) {
     var opts = {
-        log: mocks.Logger
+        log: mocks.Logger,
+        vmadm: vmadm
     };
 
     determineEventSource(opts,
@@ -81,7 +82,8 @@ test('starting VmWatcher', function _test(t) {
     watcher = new VmWatcher({
         log: mocks.Logger,
         eventSource: eventSource,
-        periodicInterval: PERIODIC_INTERVAL
+        periodicInterval: PERIODIC_INTERVAL,
+        vmadm: vmadm
     });
 
     t.ok(watcher, 'created VmWatcher');

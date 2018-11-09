@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 var execFile = require('child_process').execFile;
@@ -57,7 +57,8 @@ function main() {
 
         watcher = new VmadmEventsWatcher({
             log: mocks.Logger,
-            updateVm: _onVmUpdate
+            updateVm: _onVmUpdate,
+            vmadm: vmadm
         });
 
         t.ok(watcher, 'created VmadmEventsWatcher');
@@ -150,7 +151,8 @@ function main() {
 
 test('determine best event source', function _test(t) {
     var opts = {
-        log: mocks.Logger
+        log: mocks.Logger,
+        vmadm: vmadm
     };
 
     determineEventSource(opts,

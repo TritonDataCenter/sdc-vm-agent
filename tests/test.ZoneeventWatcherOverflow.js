@@ -265,7 +265,8 @@ function main() {
 
 test('determine best event source', function _test(t) {
     var opts = {
-        log: mocks.Logger
+        log: mocks.Logger,
+        vmadm: vmadm
     };
 
     determineEventSource(opts,
