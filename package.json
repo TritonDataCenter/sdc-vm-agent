@@ -1,7 +1,7 @@
 {
     "name": "vm-agent",
     "description": "SmartDC Node VM Agent",
-    "version": "1.8.2",
+    "version": "1.8.3",
     "author": "Joyent (joyent.com)",
     "private": true,
     "dependencies": {
@@ -9,9 +9,7 @@
         "bunyan": "1.8.12",
         "cueball": "2.1.1",
         "deep-diff": "0.3.3",
-        "eslint": "2.13.1",
         "jsprim": "2.0.0",
-        "kthxbai": "0.4.0",
         "lstream": "0.0.4",
         "mockery": "1.4.0",
         "node-uuid": "1.4.7",

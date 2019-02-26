@@ -18,26 +18,29 @@ ESLINT_FILES := $(JS_FILES)
 NODE_PREBUILT_TAG =	gz
 NODE_PREBUILT_VERSION =	v6.15.1
 ifeq ($(shell uname -s),SunOS)
-	# Allow building on a SmartOS image other than sdc-smartos/1.6.3.
+	# sdc-smartos/1.6.3.
 	NODE_PREBUILT_IMAGE =	18b094b0-eb01-11e5-80c1-175dac7ddf02
 endif
 
 # Included definitions
-include ./tools/mk/Makefile.defs
+ENGBLD_REQUIRE := $(shell git submodule update --init deps/eng)
+include ./deps/eng/tools/mk/Makefile.defs
+TOP ?= $(error Unable to access eng.git submodule Makefiles.)
+
 ifeq ($(shell uname -s),SunOS)
-	include ./tools/mk/Makefile.node_prebuilt.defs
+	include ./deps/eng/tools/mk/Makefile.node_prebuilt.defs
 else
 	NPM=npm
 	NODE=node
 	NPM_EXEC=$(shell which npm)
 	NODE_EXEC=$(shell which node)
 endif
-include ./tools/mk/Makefile.smf.defs
+include ./deps/eng/tools/mk/Makefile.smf.defs
 
 NAME :=			vm-agent
 RELEASE_TARBALL :=	$(NAME)-$(STAMP).tgz
 RELEASE_MANIFEST :=	$(NAME)-$(STAMP).manifest
-RELSTAGEDIR :=		/tmp/$(STAMP)
+RELSTAGEDIR :=		/tmp/$(NAME)-$(STAMP)
 
 #
 # Due to the unfortunate nature of npm, the Node Package Manager, there appears
@@ -55,15 +58,25 @@ RUN_NPM_INSTALL =	$(NPM_ENV) $(NPM) install
 .PHONY: all
 all: $(SMF_MANIFESTS) | $(NPM_EXEC) $(REPO_DEPS)
 	$(RUN_NPM_INSTALL)
-	./node_modules/.bin/kthxbai || true # work around trentm/node-kthxbai#1
-	./node_modules/.bin/kthxbai
+
+# kthxbai is a tool to trim out unnecessary parts of node_modules/... (per the
+# local .kthxbai definitions) for a smaller release package. We exclude "kthxbai"
+# from package.json#dependencies so 'npm ls' does not complain after kthxbai
+# has removed itself.
+.PHONY: kthxbai
+kthxbai:
+	# Use global-style to not leak sub-deps of kthxbai in node_modules top-level.
+	$(NPM) --global-style install kthxbai@~0.4.0
+	$(NODE) ./node_modules/.bin/kthxbai
+
+DISTCLEAN_FILES += node_modules
 
 .PHONY: test
 test:
 	true
 
 .PHONY: release
-release: all deps docs $(SMF_MANIFESTS)
+release: all kthxbai deps docs
 	@echo "Building $(RELEASE_TARBALL)"
 	@mkdir -p $(RELSTAGEDIR)/$(NAME)
 	(git symbolic-ref HEAD | awk -F/ '{print $$3}' && git describe) \
@@ -83,8 +96,6 @@ release: all deps docs $(SMF_MANIFESTS)
 	$(RELSTAGEDIR)/$(NAME)
 	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/eslint \
 	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/eslint
-	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/kthxbai \
-	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/kthxbai
 	uuid -v4 > $(RELSTAGEDIR)/$(NAME)/image_uuid
 	mkdir -p $(RELSTAGEDIR)/$(NAME)/node
 	cp -PR $(NODE_INSTALL)/* $(RELSTAGEDIR)/$(NAME)/node/
@@ -92,7 +103,7 @@ release: all deps docs $(SMF_MANIFESTS)
 	    $(RELSTAGEDIR)/$(NAME)/node/include \
 	    $(RELSTAGEDIR)/$(NAME)/node/lib/node_modules \
 	    $(RELSTAGEDIR)/$(NAME)/node/share
-	cd $(RELSTAGEDIR) && $(TAR) -zcf $(TOP)/$(RELEASE_TARBALL) *
+	cd $(RELSTAGEDIR) && $(TAR) -I pigz -cf $(TOP)/$(RELEASE_TARBALL) *
 	cat $(TOP)/manifest.tmpl | sed \
 	    -e "s/UUID/$$(cat $(RELSTAGEDIR)/$(NAME)/image_uuid)/" \
 	    -e "s/NAME/$$(json name < $(TOP)/package.json)/" \
@@ -107,21 +118,9 @@ release: all deps docs $(SMF_MANIFESTS)
 
 .PHONY: publish
 publish: release
-	@if [[ -z "$(BITS_DIR)" ]]; then \
-	    @echo "error: 'BITS_DIR' must be set for 'publish' target"; \
-	    exit 1; \
-	fi
-	mkdir -p $(BITS_DIR)/$(NAME)
-	cp $(TOP)/$(RELEASE_TARBALL) $(BITS_DIR)/$(NAME)/$(RELEASE_TARBALL)
-	cp $(TOP)/$(RELEASE_MANIFEST) $(BITS_DIR)/$(NAME)/$(RELEASE_MANIFEST)
-
-.PHONY: dumpvar
-dumpvar:
-	@if [[ -z "$(VAR)" ]]; then \
-	    echo "error: set 'VAR' to dump a var"; \
-	    exit 1; \
-	fi
-	@echo "$(VAR) is '$($(VAR))'"
+	mkdir -p $(ENGBLD_BITS_DIR)/$(NAME)
+	cp $(TOP)/$(RELEASE_TARBALL) $(ENGBLD_BITS_DIR)/$(NAME)/$(RELEASE_TARBALL)
+	cp $(TOP)/$(RELEASE_MANIFEST) $(ENGBLD_BITS_DIR)/$(NAME)/$(RELEASE_MANIFEST)
 
 # Here "cutting a release" is just tagging the current commit with
 # "v(package.json version)". We don't publish this to npm.
@@ -135,9 +134,9 @@ cutarelease:
 	    git tag "v$$ver" && \
 	    git push origin "v$$ver"
 
-include ./tools/mk/Makefile.deps
+include ./deps/eng/tools/mk/Makefile.deps
 ifeq ($(shell uname -s),SunOS)
-    include ./tools/mk/Makefile.node_prebuilt.targ
+    include ./deps/eng/tools/mk/Makefile.node_prebuilt.targ
 endif
-include ./tools/mk/Makefile.smf.targ
-include ./tools/mk/Makefile.targ
+include ./deps/eng/tools/mk/Makefile.smf.targ
+include ./deps/eng/tools/mk/Makefile.targ

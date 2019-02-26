@@ -1,13 +1,13 @@
 /node_modules
 /tmp
-build
+/bits
+/build
 docs/*.json
 docs/*.html
 cscope.in.out
 cscope.po.out
 cscope.out
-npm-debug.log
-smf/manifests/bapi.xml
-describe
+/npm-debug.log
+/describe
 vm-agent-*.tgz
 vm-agent-*.manifest
