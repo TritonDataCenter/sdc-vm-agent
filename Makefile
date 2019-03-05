@@ -16,7 +16,7 @@ ESLINT_FILES := $(JS_FILES)
 
 # Should be the same version as the platform's /usr/node/bin/node.
 NODE_PREBUILT_TAG =	gz
-NODE_PREBUILT_VERSION =	v6.15.1
+NODE_PREBUILT_VERSION =	v6.17.0
 ifeq ($(shell uname -s),SunOS)
 	# sdc-smartos/1.6.3.
 	NODE_PREBUILT_IMAGE =	18b094b0-eb01-11e5-80c1-175dac7ddf02
