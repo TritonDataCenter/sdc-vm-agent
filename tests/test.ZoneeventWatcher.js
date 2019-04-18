@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 var test = require('tape');
@@ -79,7 +79,8 @@ test('create VM', function _test(t) {
         autoboot: false,
         brand: 'joyent-minimal',
         image_uuid: smartosImageUUID,
-        quota: 10
+        quota: 10,
+        cpu_cap: 100
     };
     var waitAfterCreate = 5000;
 

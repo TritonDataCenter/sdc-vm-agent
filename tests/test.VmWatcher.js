@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2018, Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 var execFile = require('child_process').execFile;
@@ -122,7 +122,8 @@ test('create VM', function _test(t) {
         alias: 'vm-agent_testvm',
         brand: 'joyent-minimal',
         image_uuid: smartosImageUUID,
-        quota: 10
+        quota: 10,
+        cpu_cap: 100
     };
 
     payload.log = mocks.Logger;

@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2018, Joyent, Inc.
+ * Copyright 2019 Joyent, Inc.
  */
 
 var execFile = require('child_process').execFile;
@@ -192,6 +192,7 @@ test('Real vmadm, fake VMAPI', function _test(t) {
         alias: 'vm-agent_testvm',
         brand: 'joyent-minimal',
         image_uuid: smartosImageUUID,
+        cpu_cap: 100,
         uuid: node_uuid.v4(),
         log: mocks.Logger
     };
@@ -439,7 +440,8 @@ test('Real vmadm, fake VMAPI: 1 invalid VM', function _test(t) {
     var payload = {
         alias: 'vm-agent_testvm',
         brand: 'joyent-minimal',
-        image_uuid: smartosImageUUID
+        image_uuid: smartosImageUUID,
+        cpu_cap: 100
     };
     var vmAgent;
     var vms = [];
@@ -663,6 +665,7 @@ test('Real vmadm, fake VMAPI: validate DNI', function _test(t) {
         brand: 'joyent-minimal',
         do_not_inventory: true,
         image_uuid: smartosImageUUID,
+        cpu_cap: 100,
         uuid: node_uuid.v4()
     };
     var vmAgent;
@@ -861,7 +864,8 @@ test('Real vmadm, fake VMAPI: new DNI VM', function _test(t) {
         autoboot: true,
         brand: 'joyent-minimal',
         do_not_inventory: true,
-        image_uuid: smartosImageUUID
+        image_uuid: smartosImageUUID,
+        cpu_cap: 100
     };
     var payload1 = JSON.parse(JSON.stringify(payload));
     var payload2 = JSON.parse(JSON.stringify(payload));
@@ -978,6 +982,7 @@ test('VmAgent works after initial errors', function _test(t) {
         autoboot: false,
         brand: 'joyent-minimal',
         image_uuid: smartosImageUUID,
+        cpu_cap: 100,
         uuid: node_uuid.v4()
     };
     var resolveAfter = 3;
