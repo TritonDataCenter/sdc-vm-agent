@@ -5,7 +5,7 @@
 #
 
 #
-# Copyright (c) 2019, Joyent, Inc.
+# Copyright 2019 Joyent, Inc.
 #
 
 #
@@ -79,11 +79,8 @@ test:
 release: all kthxbai deps docs
 	@echo "Building $(RELEASE_TARBALL)"
 	@mkdir -p $(RELSTAGEDIR)/$(NAME)
-	(git symbolic-ref HEAD | awk -F/ '{print $$3}' && git describe) \
-	    >$(TOP)/describe
 	cp -r \
 	$(TOP)/bin \
-	$(TOP)/describe \
 	$(TOP)/lib \
 	$(TOP)/Makefile \
 	$(TOP)/node_modules \
