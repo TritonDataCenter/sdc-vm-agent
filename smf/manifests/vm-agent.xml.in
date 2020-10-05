@@ -7,7 +7,7 @@
 -->
 
 <!--
-    Copyright (c) 2017, Joyent, Inc.
+    Copyright 2020, Joyent, Inc.
 -->
 
 <service_bundle type="manifest" name="vm-agent">
