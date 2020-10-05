@@ -24,6 +24,10 @@
       <service_fmri value="svc:/system/filesystem/local"/>
     </dependency>
 
+    <dependency name="vmadmd" grouping="require_all" restart_on="error" type="service">
+      <service_fmri value="svc:/system/smartdc/vmadmd:default"/>
+    </dependency>
+
     <exec_method
       type="method"
       name="start"
