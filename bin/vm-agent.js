@@ -5,7 +5,7 @@
  */
 
 /*
- * Copyright (c) 2015, Joyent, Inc.
+ * Copyright 2020 Joyent, Inc.
  */
 
 /*
@@ -76,32 +76,24 @@ function loadSdcConfig(config, callback) {
         return;
     }
 
-    execFile('/bin/bash', ['/lib/sdc/config.sh', '-json'],
-        function _loadConfig(err, stdout, stderr) {
-            var sdcConfig;
-
-            if (err) {
-                logger.fatal(err, 'Could not load sdc config: ' + stderr);
-                return callback(err);
-            }
-
-            try {
-                sdcConfig = JSON.parse(stdout);
-            } catch (e) {
-                logger.fatal(e, 'Could not parse sdc config: ' + e.message);
-                return callback(e);
-            }
-
-            if (sdcConfig.vmapi_domain) {
-                config.vmapi_url = 'http://' + sdcConfig.vmapi_domain;
-            } else {
-                logger.warn('SDC config did not include vmapi_domain');
-            }
-
-            // pass (potentially modified) config to next function in waterfall
-            return callback(null, config);
+    fs.readFile('/usr/triton/config/node.config', function _onRead(err, data) {
+        if (err) {
+            callback(err);
+            return;
         }
-    );
+
+        var match = String(data).match(/vmapi_domain='(.*?)'/);
+        if (match) {
+            config.vmapi_url = 'http://' + match[1];
+        } else {
+            logger.warn('CN node.config did not include vmapi_domain');
+            config.vmapi_url = 'http://vmapi';
+        }
+
+        // pass (potentially modified) config to next function in waterfall
+        callback(null, config);
+        return;
+    });
 }
 
 // Load this server's UUID from sysinfo and add to the config.
@@ -111,13 +103,9 @@ function loadSysinfo(config, callback) {
     assert.object(config);
     assert.func(callback);
 
-    if (config.hasOwnProperty('server_uuid')) {
-        // already have server_uuid, no need to gather from sysinfo
-        callback(null, config);
-        return;
-    }
-
-    execFile('/usr/bin/sysinfo', [], function _sysinfoCb(err, stdout, stderr) {
+    // XXX: TODO: Use sysinfo JS module.
+    execFile('/usr/triton/bin/sysinfo', [],
+            function _sysinfoCb(err, stdout, stderr) {
         if (err) {
             logger.fatal('Could not load sysinfo: ' + stderr.toString());
             callback(err);
@@ -139,6 +127,7 @@ function loadSysinfo(config, callback) {
         }
 
         config.server_uuid = sysinfo.UUID;
+        config.sysinfo = sysinfo;
 
         callback(null, config);
         return;

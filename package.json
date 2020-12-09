@@ -1,7 +1,7 @@
 {
     "name": "vm-agent",
-    "description": "SmartDC Node VM Agent",
-    "version": "1.9.1",
+    "description": "Linux Node VM Agent",
+    "version": "2.0.0",
     "author": "Joyent (joyent.com)",
     "private": true,
     "dependencies": {
@@ -16,7 +16,7 @@
         "restify-clients": "1.6.0",
         "tape": "4.2.2",
         "vasync": "1.6.3",
-        "vmadm": "https://github.com/joyent/node-vmadm.git#v1.3.1"
+        "vmadm": "https://github.com/joyent/node-vmadm.git#linuxcn"
     },
     "devDependencies": {
         "eslint": "4.19.1",
