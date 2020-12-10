@@ -6,7 +6,7 @@
 #
 
 #
-# Copyright 2017 Joyent, Inc.
+# Copyright 2020 Joyent, Inc.
 #
 
 if [[ "${SDC_AGENT_SKIP_LIFECYCLE:-no}" = "yes" ]]; then
@@ -18,7 +18,11 @@ fi
 # We must load the SDC configuration before setting any strict error handling
 # options.
 #
-. /lib/sdc/config.sh
+if [[ "$(uname)" == "Linux" ]]; then
+    . /usr/triton/bin/config.sh
+else
+    . /lib/sdc/config.sh
+fi
 load_sdc_config
 
 ROOT="$(cd `dirname $0`/../ 2>/dev/null && pwd)"
@@ -35,8 +39,11 @@ export VERSION="$npm_package_version"
 export ENABLED="true"
 
 AGENT="$npm_package_name"
-
-BOOTPARAMS=/usr/bin/bootparams
+if [[ "$(uname)" == "Linux" ]]; then
+    BOOTPARAMS=/usr/bin/echo
+else
+    BOOTPARAMS=/usr/bin/bootparams
+fi
 AWK=/usr/bin/awk
 
 
@@ -50,49 +57,115 @@ function subfile
 {
     local infile="$1"
     local outfile="$2"
+    local agent_type="$3"
+    local file_port
+    local file_enabled
 
-    if [[ -z "${infile}" || -z "${outfile}" ]]; then
-        fatal 'subfile requires two arguments'
+    if [[ -z "${infile}" || -z "${outfile}" || -z "${agent_type}" ]]; then
+        fatal 'subfile requires three arguments'
     fi
+
+    case "${agent_type}" in
+    normal)
+        file_port='5309'
+        file_enabled="${ENABLED}"
+        ;;
+    update)
+        file_port='5310'
+        file_enabled='false'
+        ;;
+    setup)
+        file_enabled='true'
+        file_port='0'
+        ;;
+    *)
+        fatal 'Unknown agent type: "%s".' "${agent_type}"
+        ;;
+    esac
 
     if ! sed -e "s#@@PREFIX@@#$PREFIX#g" \
       -e "s/@@VERSION@@/$VERSION/g" \
       -e "s#@@ROOT@@#$ROOT#g" \
-      -e "s/@@ENABLED@@/$ENABLED/g" \
+      -e "s/@@ENABLED@@/${file_enabled}/g" \
+      -e "s/@@PORT@@/${file_port}/g" \
       "${infile}" > "${outfile}"; then
         fatal 'sed failure ("%s" -> "%s")' "${infile}" "${outfile}"
     fi
 }
 
 #
-# Replace substitution tokens in the SMF manifest files, and then
-# import the SMF service.
+# Replace substitution tokens in the SMF manifest files, and then import the
+# SMF services.
 #
 function import_smf_manifest
 {
     local agent_manifest_in="$ROOT/smf/manifests/$AGENT.xml.in"
     local agent_manifest_out="$SMF_DIR/$AGENT.xml"
-    local agent_setup_manifest_in="$ROOT/smf/manifests/$AGENT-setup.xml.in"
-    local agent_setup_manifest_out="$SMF_DIR/$AGENT-setup.xml"
+    local agent_update_manifest_in="$ROOT/smf/manifests/$AGENT-update.xml.in"
+    local agent_update_manifest_out="$SMF_DIR/$AGENT-update.xml"
+    local agent_setup_manifest_in="$ROOT/smf/manifests/${AGENT}-setup.xml.in"
+    local agent_setup_manifest_out="$SMF_DIR/${AGENT}-setup.xml"
 
     if [[ ! -f "${agent_manifest_in}" ]]; then
-        fatal 'could not find smf manifest input file: %s' \
-            "${agent_manifest_in}"
-    fi
-    if [[ ! -f "${agent_setup_manifest_in}" ]]; then
-        fatal 'could not find smf manifest input file: %s'
-        "${agent_setup_manifest_in}"
+        fatal 'could not find smf manifest input file: %s' "${agent_manifest_in}"
     fi
 
-    if ! subfile "${agent_manifest_in}" "${agent_manifest_out}" ||
+    if ! subfile "${agent_manifest_in}" "${agent_manifest_out}" 'normal' ||
       ! svccfg import "${agent_manifest_out}"; then
         fatal 'could not process smf manifest (%s)' "${agent_manifest_in}"
     fi
 
-    if ! subfile "${agent_setup_manifest_in}" "${agent_setup_manifest_out}" ||
+    if [[ ! -f "${agent_update_manifest_in}" ]]; then
+        echo 'no smf manifest update file: %s' "${agent_update_manifest_in}"
+    else
+        if ! subfile "${agent_update_manifest_in}" "${agent_update_manifest_out}" \
+          'update' ||
+          ! svccfg import "${agent_update_manifest_out}"; then
+            fatal 'could not process smf manifest (%s)' \
+                "${agent_update_manifest_in}"
+        fi
+    fi
+
+    if ! subfile "${agent_setup_manifest_in}" "${agent_setup_manifest_out}" \
+      'setup' ||
       ! svccfg import "${agent_setup_manifest_out}"; then
         fatal 'could not process smf manifest (%s)' "${agent_setup_manifest_in}"
     fi
+}
+
+#
+# Same but for systemd services.
+#
+function import_system_services
+{
+    local agent_service_in="$ROOT/systemd/triton-$AGENT.service.in"
+    local agent_service_out="/usr/lib/systemd/system/triton-$AGENT.service"
+    local agent_service_keep="$ROOT/systemd/triton-$AGENT.service"
+    local agent_update_service_in="$ROOT/systemd/triton-$AGENT-update.service.in"
+    local agent_update_service_out="/usr/lib/systemd/system/triton-$AGENT-update.service"
+    local agent_update_service_keep="$ROOT/systemd/triton-$AGENT-update.service"
+
+    if [[ ! -f "${agent_service_in}" ]]; then
+        fatal 'could not find systemd service input file: %s' "${agent_service_in}"
+    fi
+
+    if ! subfile "${agent_service_in}" "${agent_service_out}" "normal" ||
+      ! systemctl enable "triton-$AGENT" ||
+      ! systemctl start "triton-$AGENT"; then
+        fatal 'could not process systemd service (%s)' "${agent_service_in}"
+    fi
+
+    if [[ ! -f "${agent_update_service_in}" ]]; then
+        echo 'no systemd update service file: %s' "${agent_update_service_in}"
+    else
+        if ! subfile "${agent_update_service_in}" "${agent_update_service_out}" "update" ||
+          ! systemctl enable "triton-$AGENT-update"; then
+            fatal 'could not process systemd service (%s)' "${agent_update_service_in}"
+        fi
+    fi
+
+    cp "${agent_service_out}" "${agent_service_keep}"
+    cp "${agent_update_service_out}" "${agent_update_service_keep}"
 }
 
 #
@@ -137,6 +210,10 @@ function adopt_instance
     local retry=10
     local url
     local data
+    local server_uuid
+    local image_uuid
+    server_uuid=$(/usr/bin/sysinfo|json UUID)
+    image_uuid="$(<${ROOT}/image_uuid)"
 
     if [[ -z "${instance_uuid}" ]]; then
         fatal 'must pass instance_uuid'
@@ -163,7 +240,11 @@ function adopt_instance
         url="${SAPI_URL}/instances"
         data="{
             \"service_uuid\": \"${service_uuid}\",
-            \"uuid\": \"${instance_uuid}\"
+            \"uuid\": \"${instance_uuid}\",
+            \"params\": {
+                \"server_uuid\": \"${server_uuid}\",
+                \"image_uuid\": \"${image_uuid}\"
+            }
         }"
         if ! curl -sSf -X POST -H 'Content-Type: application/json' \
           -d "${data}" "${url}"; then
@@ -220,21 +301,28 @@ function add_config_agent_instance
 #
 function config_agent_restart
 {
-    local fmri='svc:/smartdc/application/config-agent:default'
-    local smf_state
+    if [[ "$(uname)" == "Linux" ]]; then
+        if [[ "$(/usr/bin/systemctl is-active triton-config-agent)" == "active" ]]; then
+            /usr/bin/systemctl reload-or-restart triton-config-agent
+        else
+            fatal 'could not restart config-agent service'
+        fi
+    else
+        local fmri='svc:/smartdc/application/config-agent:default'
+        local smf_state
 
-    if ! smf_state="$(svcs -H -o sta "${fmri}")"; then
-        printf 'No "config-agent" detected.  Skipping restart.\n' >&2
-        return 0
+        if ! smf_state="$(svcs -H -o sta "${fmri}")"; then
+            printf 'No "config-agent" detected.  Skipping restart.\n' >&2
+            return 0
+        fi
+
+        printf '"config-agent" detected in state "%s", posting restart.\n' \
+          "${smf_state}" >&2
+
+        if ! /usr/sbin/svcadm restart "${fmri}"; then
+            fatal 'could not restart config-agent instance'
+        fi
     fi
-
-    printf '"config-agent" detected in state "%s", posting restart.\n' \
-      "${smf_state}" >&2
-
-    if ! /usr/sbin/svcadm restart "${fmri}"; then
-        fatal 'could not restart config-agent instance'
-    fi
-
     return 0
 }
 
@@ -316,7 +404,11 @@ if [[ -z "${CONFIG_sapi_domain}" ]]; then
 fi
 SAPI_URL="http://${CONFIG_sapi_domain}"
 
-import_smf_manifest
+if [[ "$(uname)" == "Linux" ]]; then
+    import_system_services
+else
+    import_smf_manifest
+fi
 
 INSTANCE_UUID="$(get_or_create_instance_uuid)"
 
