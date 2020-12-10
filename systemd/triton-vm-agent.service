@@ -12,15 +12,15 @@
 # This file is delivered as part of the Triton Platform Image.
 #
 [Unit]
-Description=Triton vm-agent setup service
+Description=Triton vm-agent used to manage Compute Nodes
 Documentation=https://github.com/joyent/linux-live/tree/linuxcn
 After=network.target
 
 [Service]
-Environment=PATH=/usr/node/bin:/usr/triton/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+EnvironmentFile=/usr/triton/config/systemd.env
 Type=simple
-ExecStart=/usr/node/bin/node --abort_on_uncaught_exception @@PREFIX@@/bin/vm-agent &amp;
+# Note that TRITON_AGENT_NODE_DIR is set in the EnvironmentFile.
+ExecStart=/usr/node/bin/node --abort_on_uncaught_exception ${TRITON_AGENT_NODE_DIR}/vm-agent/bin/vm-agent.js
 
 [Install]
 WantedBy=multi-user.target
-
