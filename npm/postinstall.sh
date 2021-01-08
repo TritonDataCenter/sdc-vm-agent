@@ -14,15 +14,17 @@ if [[ "${SDC_AGENT_SKIP_LIFECYCLE:-no}" = "yes" ]]; then
     exit 0
 fi
 
+if [[ "$(uname)" == "Linux" ]]; then
+    printf 'Linux postinstall not used anymore\n' >&2
+    exit 0
+fi
+
 #
 # We must load the SDC configuration before setting any strict error handling
 # options.
 #
-if [[ "$(uname)" == "Linux" ]]; then
-    . /usr/triton/bin/config.sh
-else
-    . /lib/sdc/config.sh
-fi
+
+. /lib/sdc/config.sh
 load_sdc_config
 
 ROOT="$(cd `dirname $0`/../ 2>/dev/null && pwd)"
@@ -39,11 +41,7 @@ export VERSION="$npm_package_version"
 export ENABLED="true"
 
 AGENT="$npm_package_name"
-if [[ "$(uname)" == "Linux" ]]; then
-    BOOTPARAMS=/usr/bin/echo
-else
-    BOOTPARAMS=/usr/bin/bootparams
-fi
+BOOTPARAMS=/usr/bin/bootparams
 AWK=/usr/bin/awk
 
 
@@ -285,28 +283,21 @@ function add_config_agent_instance
 #
 function config_agent_restart
 {
-    if [[ "$(uname)" == "Linux" ]]; then
-        if [[ "$(/usr/bin/systemctl is-active triton-config-agent)" == "active" ]]; then
-            /usr/bin/systemctl reload-or-restart triton-config-agent
-        else
-            fatal 'could not restart config-agent service'
-        fi
-    else
-        local fmri='svc:/smartdc/application/config-agent:default'
-        local smf_state
+    local fmri='svc:/smartdc/application/config-agent:default'
+    local smf_state
 
-        if ! smf_state="$(svcs -H -o sta "${fmri}")"; then
-            printf 'No "config-agent" detected.  Skipping restart.\n' >&2
-            return 0
-        fi
-
-        printf '"config-agent" detected in state "%s", posting restart.\n' \
-          "${smf_state}" >&2
-
-        if ! /usr/sbin/svcadm restart "${fmri}"; then
-            fatal 'could not restart config-agent instance'
-        fi
+    if ! smf_state="$(svcs -H -o sta "${fmri}")"; then
+        printf 'No "config-agent" detected.  Skipping restart.\n' >&2
+        return 0
     fi
+
+    printf '"config-agent" detected in state "%s", posting restart.\n' \
+      "${smf_state}" >&2
+
+    if ! /usr/sbin/svcadm restart "${fmri}"; then
+        fatal 'could not restart config-agent instance'
+    fi
+
     return 0
 }
 
@@ -388,11 +379,7 @@ if [[ -z "${CONFIG_sapi_domain}" ]]; then
 fi
 SAPI_URL="http://${CONFIG_sapi_domain}"
 
-if [[ "$(uname)" == "Linux" ]]; then
-    import_system_services
-else
-    import_smf_manifest
-fi
+import_smf_manifest
 
 INSTANCE_UUID="$(get_or_create_instance_uuid)"
 
