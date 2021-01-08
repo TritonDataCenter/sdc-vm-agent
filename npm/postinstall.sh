@@ -138,34 +138,18 @@ function import_smf_manifest
 #
 function import_system_services
 {
-    local agent_service_in="$ROOT/systemd/triton-$AGENT.service.in"
-    local agent_service_out="/usr/lib/systemd/system/triton-$AGENT.service"
-    local agent_service_keep="$ROOT/systemd/triton-$AGENT.service"
-    local agent_update_service_in="$ROOT/systemd/triton-$AGENT-update.service.in"
-    local agent_update_service_out="/usr/lib/systemd/system/triton-$AGENT-update.service"
-    local agent_update_service_keep="$ROOT/systemd/triton-$AGENT-update.service"
+    local agent_service_file="/usr/lib/systemd/system/triton-$AGENT.service"
+    local agent_service_install="$ROOT/systemd/triton-$AGENT.service"
 
-    if [[ ! -f "${agent_service_in}" ]]; then
-        fatal 'could not find systemd service input file: %s' "${agent_service_in}"
-    fi
-
-    if ! subfile "${agent_service_in}" "${agent_service_out}" "normal" ||
-      ! systemctl enable "triton-$AGENT" ||
-      ! systemctl start "triton-$AGENT"; then
-        fatal 'could not process systemd service (%s)' "${agent_service_in}"
-    fi
-
-    if [[ ! -f "${agent_update_service_in}" ]]; then
-        echo 'no systemd update service file: %s' "${agent_update_service_in}"
-    else
-        if ! subfile "${agent_update_service_in}" "${agent_update_service_out}" "update" ||
-          ! systemctl enable "triton-$AGENT-update"; then
-            fatal 'could not process systemd service (%s)' "${agent_update_service_in}"
-        fi
+    if [[ ! -f "${agent_service_file}" ]]; then
+        fatal 'could not find systemd service file: %s' "${agent_service_file}"
     fi
 
     cp "${agent_service_out}" "${agent_service_keep}"
-    cp "${agent_update_service_out}" "${agent_update_service_keep}"
+
+    # Does this also need a `systemctl daemon-reload` ?
+    systemctl enable "triton-$AGENT" || systemctl reenable "triton-$AGENT"
+    systemctl restart "triton-$AGENT"
 }
 
 #
