@@ -1,6 +1,0 @@
-[submodule "deps/restdown"]
-	path = deps/restdown
-	url = https://github.com/TritonDataCenter/restdown.git
-[submodule "deps/eng"]
-	path = deps/eng
-	url = https://github.com/TritonDataCenter/eng.git
