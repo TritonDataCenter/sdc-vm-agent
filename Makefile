@@ -92,7 +92,7 @@ release: all kthxbai deps docs
 	$(TOP)/smf \
 	$(TOP)/npm \
 	$(RELSTAGEDIR)/$(NAME)
-	json -f package.json -e 'this.version += "-$(STAMP)"' \
+	json -f $(TOP)/package.json -e 'this.version += "-$(STAMP)"' \
 	    > $(RELSTAGEDIR)/$(NAME)/package.json
 	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/eslint \
 	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/eslint
