@@ -6,6 +6,7 @@
 
 #
 # Copyright 2019 Joyent, Inc.
+# Copyright 2022 MNX Cloud, Inc.
 #
 
 #
@@ -91,6 +92,8 @@ release: all kthxbai deps docs
 	$(TOP)/smf \
 	$(TOP)/npm \
 	$(RELSTAGEDIR)/$(NAME)
+	json -f $(TOP)/package.json -e 'this.version += "-$(STAMP)"' \
+	    > $(RELSTAGEDIR)/$(NAME)/package.json
 	rm -rf $(RELSTAGEDIR)/$(NAME)/node_modules/eslint \
 	    $(RELSTAGEDIR)/$(NAME)/node_modules/.bin/eslint
 	uuid -v4 > $(RELSTAGEDIR)/$(NAME)/image_uuid
