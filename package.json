@@ -2,7 +2,7 @@
     "name": "vm-agent",
     "description": "Linux Node VM Agent",
     "version": "2.0.0",
-    "author": "Joyent (joyent.com)",
+    "author": "MNX Cloud (mnx.io)",
     "private": true,
     "dependencies": {
         "assert-plus": "0.2.0",
