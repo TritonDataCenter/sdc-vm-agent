@@ -1,8 +1,8 @@
 {
     "name": "vm-agent",
-    "description": "SmartDC Node VM Agent",
-    "version": "1.9.1",
-    "author": "Joyent (joyent.com)",
+    "description": "Triton Compute Node VM Agent",
+    "version": "1.9.2",
+    "author": "MNX Cloud (mnx.io)",
     "private": true,
     "dependencies": {
         "assert-plus": "0.2.0",
@@ -16,7 +16,7 @@
         "restify-clients": "1.6.0",
         "tape": "4.2.2",
         "vasync": "1.6.3",
-        "vmadm": "https://github.com/joyent/node-vmadm.git#v1.3.1"
+        "vmadm": "https://github.com/TritonDataCenter/node-vmadm.git#v1.3.1"
     },
     "devDependencies": {
         "eslint": "4.19.1",
